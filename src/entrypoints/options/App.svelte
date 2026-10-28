@@ -42,6 +42,8 @@
   let states = $state.raw(new Map<string, FeedState>());
   let granted = $state.raw(new Set<string>());
   let loaded = $state(false);
+  let loadError = $state('');
+  let statesError = $state('');
   let now = $state(Date.now());
   let refreshing = $state(false);
   let refreshNote = $state('');
@@ -51,27 +53,53 @@
 
   // Load and sync ---------------------------------------------------------------------------
 
+  // Everything editable lives in chrome.storage, so the page renders from that alone. Feed
+  // status comes from IndexedDB and fills in afterwards; a problem there is shown, not fatal.
   async function loadAll() {
-    const [s, f, st, perms] = await Promise.all([
-      getSettings(),
-      getFeeds(),
-      db.feedState.toArray(),
-      browser.permissions.getAll(),
-    ]);
-    settings = s;
-    feeds = f;
-    states = new Map(st.map((x) => [x.feedId, x]));
-    granted = new Set(perms.origins ?? []);
-    applyAppearance(s);
-    loaded = true;
-    // Access granted only for looking around on a site, never used by a feed, goes back.
-    void releaseUnused(f);
+    try {
+      const [s, f, perms] = await Promise.all([
+        getSettings(),
+        getFeeds(),
+        browser.permissions.getAll(),
+      ]);
+      settings = s;
+      feeds = f;
+      granted = new Set(perms.origins ?? []);
+      applyAppearance(s);
+      loaded = true;
+      // Access granted only for looking around on a site, never used by a feed, goes back.
+      void releaseUnused(f);
+    } catch (e) {
+      loadError = describe(e);
+      console.error('[daily-tab] settings failed to load', e);
+    }
+    void reloadStates();
   }
 
   async function reloadStates() {
-    const st = await db.feedState.toArray();
-    states = new Map(st.map((x) => [x.feedId, x]));
+    try {
+      const st = await withTimeout(db.feedState.toArray(), 5000);
+      states = new Map(st.map((x) => [x.feedId, x]));
+      statesError = '';
+    } catch (e) {
+      statesError = describe(e);
+      console.error('[daily-tab] feed status unavailable', e);
+    }
     now = Date.now();
+  }
+
+  const describe = (e: unknown) => (e instanceof Error ? `${e.name}: ${e.message}` : String(e));
+
+  function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+    return Promise.race([
+      p,
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`no answer from the feed database in ${ms / 1000} s`)),
+          ms,
+        ),
+      ),
+    ]);
   }
 
   async function reloadGranted() {
@@ -261,149 +289,165 @@
     <p class="sub">{settings.paperName}</p>
   </header>
 
-  {#if loaded}
-    <section aria-labelledby="paper-h">
-      <h2 id="paper-h">Paper</h2>
-      <label class="field">
-        <span>Name on the masthead</span>
-        <input type="text" maxlength="40" value={settings.paperName} oninput={editName} />
-      </label>
-    </section>
-
-    <section aria-labelledby="feeds-h">
-      <h2 id="feeds-h">Sections and feeds</h2>
-      <p class="hint">
-        Drag sections and feeds by their handle to reorder them, or use the arrows. The order here
-        is the order of the front page.
-      </p>
-      <h3>Add a feed</h3>
-      <AddFeed {sections} {feeds} onadd={addFeed} onrelease={() => void releaseUnused(feeds)} />
-      <h3>Your sections</h3>
-      <FeedSections
-        {sections}
-        {feeds}
-        {states}
-        {granted}
-        {now}
-        {onmovefeed}
-        {onmovesection}
-        {onrename}
-        {onremove}
-        {onrenamesection}
-        {onremovesection}
-        {onaddsection}
-        onallow={allow}
-      />
-    </section>
-
-    <section aria-labelledby="look-h">
-      <h2 id="look-h">Appearance</h2>
-      <fieldset>
-        <legend>Edition</legend>
-        {#each themes as t (t.value)}
-          <label class="choice">
-            <input
-              type="radio"
-              name="theme"
-              value={t.value}
-              checked={settings.theme === t.value}
-              onchange={() => void patchSettings({ theme: t.value })}
-            />
-            {t.label}
-          </label>
-        {/each}
-      </fieldset>
-      <fieldset>
-        <legend>Photos</legend>
-        {#each photoStyles as p (p.value)}
-          <label class="choice">
-            <input
-              type="radio"
-              name="photos"
-              value={p.value}
-              checked={settings.photos === p.value}
-              onchange={() => void patchSettings({ photos: p.value })}
-            />
-            {p.label}
-          </label>
-        {/each}
-      </fieldset>
-      <fieldset>
-        <legend>Spot color</legend>
-        <p class="hint">Used only for section kickers, “new” dots and focus rings.</p>
-        <div class="spot">
-          <input
-            type="color"
-            value={settings.spotColor}
-            oninput={editSpot}
-            aria-label="Spot color"
-          />
-          <span class="swatch day">WORLD</span>
-          <span class="swatch night">WORLD</span>
-          {#if settings.spotColor.toLowerCase() !== DEFAULT_SPOT.toLowerCase()}
-            <button
-              type="button"
-              class="link"
-              onclick={() => void patchSettings({ spotColor: DEFAULT_SPOT })}
-              >Reset to press red</button
-            >
-          {/if}
-        </div>
-        {#if spotContrast < MIN_TEXT_CONTRAST}
-          <p class="error" role="status">
-            This color is hard to read on day paper ({spotContrast.toFixed(1)}:1; kickers need
-            {MIN_TEXT_CONTRAST}:1). Choose a darker shade.
-          </p>
-        {/if}
-      </fieldset>
-    </section>
-
-    <section aria-labelledby="pinned-h">
-      <h2 id="pinned-h">Pinned links</h2>
-      <PinnedLinks
-        links={settings.pinnedLinks}
-        onchange={(links: PinnedLink[]) => void patchSettings({ pinnedLinks: links })}
-      />
-    </section>
-
-    <section aria-labelledby="refresh-h">
-      <h2 id="refresh-h">Refresh</h2>
-      <div class="row">
-        <label class="field">
-          <span>Check feeds every</span>
-          <select
-            id="refresh-interval"
-            value={settings.refreshMinutes}
-            onchange={(e) =>
-              void patchSettings({
-                refreshMinutes: Number((e.currentTarget as HTMLSelectElement).value),
-              })}
-          >
-            {#each intervals as m (m)}
-              <option value={m}
-                >{m < 60 ? `${m} minutes` : `${m / 60} hour${m > 60 ? 's' : ''}`}</option
-              >
-            {/each}
-          </select>
-        </label>
-        <button type="button" onclick={refreshNow} disabled={refreshing}>
-          {refreshing ? 'Refreshing…' : 'Refresh now'}
-        </button>
-      </div>
-      {#if refreshNote}<p class="hint" role="status">{refreshNote}</p>{/if}
-      <p class="hint">
-        A feed that fails is retried less often (twice the interval each time, up to 6 hours).
-      </p>
-    </section>
-
-    <section aria-labelledby="opml-h">
-      <h2 id="opml-h">Import and export</h2>
-      <p class="hint">
-        OPML is the standard subscription list format; most feed readers can import and export it.
-      </p>
-      <OpmlTools {feeds} {sections} paperName={settings.paperName} onimport={importFeeds} />
-    </section>
+  {#if loadError}
+    <p class="error" role="alert">Settings could not be loaded: {loadError}</p>
   {/if}
+
+  <!-- A rendering error shows its message instead of leaving a blank page. -->
+  <svelte:boundary onerror={(e) => console.error('[daily-tab] settings render failed', e)}>
+    {#if loaded}
+      <section aria-labelledby="paper-h">
+        <h2 id="paper-h">Paper</h2>
+        <label class="field">
+          <span>Name on the masthead</span>
+          <input type="text" maxlength="40" value={settings.paperName} oninput={editName} />
+        </label>
+      </section>
+
+      <section aria-labelledby="feeds-h">
+        <h2 id="feeds-h">Sections and feeds</h2>
+        <p class="hint">
+          Drag sections and feeds by their handle to reorder them, or use the arrows. The order here
+          is the order of the front page.
+        </p>
+        {#if statesError}
+          <p class="error" role="status">Feed status is unavailable ({statesError}).</p>
+        {/if}
+        <h3>Add a feed</h3>
+        <AddFeed {sections} {feeds} onadd={addFeed} onrelease={() => void releaseUnused(feeds)} />
+        <h3>Your sections</h3>
+        <FeedSections
+          {sections}
+          {feeds}
+          {states}
+          {granted}
+          {now}
+          {onmovefeed}
+          {onmovesection}
+          {onrename}
+          {onremove}
+          {onrenamesection}
+          {onremovesection}
+          {onaddsection}
+          onallow={allow}
+        />
+      </section>
+
+      <section aria-labelledby="look-h">
+        <h2 id="look-h">Appearance</h2>
+        <fieldset>
+          <legend>Edition</legend>
+          {#each themes as t (t.value)}
+            <label class="choice">
+              <input
+                type="radio"
+                name="theme"
+                value={t.value}
+                checked={settings.theme === t.value}
+                onchange={() => void patchSettings({ theme: t.value })}
+              />
+              {t.label}
+            </label>
+          {/each}
+        </fieldset>
+        <fieldset>
+          <legend>Photos</legend>
+          {#each photoStyles as p (p.value)}
+            <label class="choice">
+              <input
+                type="radio"
+                name="photos"
+                value={p.value}
+                checked={settings.photos === p.value}
+                onchange={() => void patchSettings({ photos: p.value })}
+              />
+              {p.label}
+            </label>
+          {/each}
+        </fieldset>
+        <fieldset>
+          <legend>Spot color</legend>
+          <p class="hint">Used only for section kickers, “new” dots and focus rings.</p>
+          <div class="spot">
+            <input
+              type="color"
+              value={settings.spotColor}
+              oninput={editSpot}
+              aria-label="Spot color"
+            />
+            <span class="swatch day">WORLD</span>
+            <span class="swatch night">WORLD</span>
+            {#if settings.spotColor.toLowerCase() !== DEFAULT_SPOT.toLowerCase()}
+              <button
+                type="button"
+                class="link"
+                onclick={() => void patchSettings({ spotColor: DEFAULT_SPOT })}
+                >Reset to press red</button
+              >
+            {/if}
+          </div>
+          {#if spotContrast < MIN_TEXT_CONTRAST}
+            <p class="error" role="status">
+              This color is hard to read on day paper ({spotContrast.toFixed(1)}:1; kickers need
+              {MIN_TEXT_CONTRAST}:1). Choose a darker shade.
+            </p>
+          {/if}
+        </fieldset>
+      </section>
+
+      <section aria-labelledby="pinned-h">
+        <h2 id="pinned-h">Pinned links</h2>
+        <PinnedLinks
+          links={settings.pinnedLinks}
+          onchange={(links: PinnedLink[]) => void patchSettings({ pinnedLinks: links })}
+        />
+      </section>
+
+      <section aria-labelledby="refresh-h">
+        <h2 id="refresh-h">Refresh</h2>
+        <div class="row">
+          <label class="field">
+            <span>Check feeds every</span>
+            <select
+              id="refresh-interval"
+              value={settings.refreshMinutes}
+              onchange={(e) =>
+                void patchSettings({
+                  refreshMinutes: Number((e.currentTarget as HTMLSelectElement).value),
+                })}
+            >
+              {#each intervals as m (m)}
+                <option value={m}
+                  >{m < 60 ? `${m} minutes` : `${m / 60} hour${m > 60 ? 's' : ''}`}</option
+                >
+              {/each}
+            </select>
+          </label>
+          <button type="button" onclick={refreshNow} disabled={refreshing}>
+            {refreshing ? 'Refreshing…' : 'Refresh now'}
+          </button>
+        </div>
+        {#if refreshNote}<p class="hint" role="status">{refreshNote}</p>{/if}
+        <p class="hint">
+          A feed that fails is retried less often (twice the interval each time, up to 6 hours).
+        </p>
+      </section>
+
+      <section aria-labelledby="opml-h">
+        <h2 id="opml-h">Import and export</h2>
+        <p class="hint">
+          OPML is the standard subscription list format; most feed readers can import and export it.
+        </p>
+        <OpmlTools {feeds} {sections} paperName={settings.paperName} onimport={importFeeds} />
+      </section>
+    {/if}
+    {#snippet failed(error, reset)}
+      <div class="error" role="alert">
+        <p>Part of this page failed to display: {describe(error)}</p>
+        <button type="button" onclick={reset}>Try again</button>
+      </div>
+    {/snippet}
+  </svelte:boundary>
 </main>
 
 <style>
