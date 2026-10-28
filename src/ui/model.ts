@@ -342,5 +342,6 @@ function corrections(states: FeedState[], feedById: Map<string, Feed>): string[]
     else if (/feed|xml/i.test(err)) out.push(`${feed.title} sent a feed we could not read${at}.`);
     else out.push(`${feed.title} could not be reached${at}.`);
   }
-  return out;
+  // Two feeds from one outlet (same title) failing together read as one note, once.
+  return [...new Set(out)];
 }

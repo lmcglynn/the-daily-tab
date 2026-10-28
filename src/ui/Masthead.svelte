@@ -87,7 +87,8 @@
       {#if view.pinned.length}
         <nav class="pinned" aria-label="Pinned links">
           <ul>
-            {#each view.pinned as link (link.url)}
+            <!-- By position: the same URL can be pinned twice. -->
+            {#each view.pinned as link, i (i)}
               <li>
                 <a href={link.url} class="chip">
                   {#if !brokenIcons.has(link.url)}

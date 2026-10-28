@@ -219,6 +219,18 @@ describe('buildFrontPage', () => {
     ]);
   });
 
+  it('prints one correction when two same-named feeds fail alike', () => {
+    const sci = fx.feeds.find((f) => f.title === 'Scientific American')!;
+    const twin = { ...sci, id: 'sci-twin', url: 'https://www.scientificamerican.com/other/' };
+    const state = fx.states.find((s) => s.feedId === sci.id)!;
+    const v = buildFrontPage({
+      ...base,
+      feeds: [...fx.feeds, twin],
+      states: [...fx.states, { ...state, feedId: twin.id }],
+    });
+    expect(v.corrections).toEqual(['Scientific American could not be reached at 9:42.']);
+  });
+
   it('labels offline and first-run folios', () => {
     expect(buildFrontPage({ ...base, online: false }).updatedLabel).toMatch(
       /^Edition of \d+:\d\d · offline$/,
