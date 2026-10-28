@@ -145,9 +145,10 @@ describe('composeEdition', () => {
     expect(e.number).toBe(5);
   });
 
-  it('counts only the last 6 hours of coverage toward the lead', () => {
+  it('counts only the last 4 hours of coverage toward the lead', () => {
     // The Geneva story still groups, but only g3 is recent enough: one feed, so it can't lead.
-    const age = { g1: 8 * HOUR, g2: 7 * HOUR, g3: 5 * HOUR } as Record<string, number>;
+    // (At 5 h, g1 and g2 would still count under a 6 h window and Geneva would lead.)
+    const age = { g1: 5 * HOUR, g2: 5 * HOUR, g3: 3 * HOUR } as Record<string, number>;
     const items = frontPageItems().map((i) =>
       i.id in age ? { ...i, publishedAt: NOW - age[i.id]! } : i,
     );

@@ -1,7 +1,7 @@
 import type { Edition, Feed, Item } from '../types';
 
 /** Only coverage this recent counts toward the lead, so a big story gives way within hours. */
-export const LEAD_WINDOW_MS = 6 * 60 * 60 * 1000;
+export const LEAD_WINDOW_MS = 4 * 60 * 60 * 1000;
 export const SECONDARY_COUNT = 3;
 export const BAND_SIZE = 4;
 /** Headlines under the lead story, in place of the old "story elsewhere" list. */
@@ -35,7 +35,7 @@ const storyOf = (i: Item) => i.storyId ?? i.id;
 
 /**
  * Lay out an edition:
- * - Lead: the largest same-story group across feeds in the last 6 h; otherwise the newest
+ * - Lead: the largest same-story group across feeds in the last 4 h; otherwise the newest
  *   photo story from the top section.
  * - Secondary: newest photo stories from the other sections.
  * - Section bands: newest remaining stories per section.
