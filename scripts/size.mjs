@@ -29,12 +29,28 @@ while (queue.length) {
   }
 }
 
+// Heavy modules that must stay off the new tab's critical path (see CLAUDE.md): the feed
+// parser belongs to the background, Dexie is imported lazily.
+const FORBIDDEN = [
+  ['fast-xml-parser', /XMLParser|tagValueProcessor/],
+  ['Dexie', /Dexie\.version|DexieError/],
+];
+let leaked = false;
+
 let js = 0;
 for (const rel of seen) {
-  const gz = gzipSync(readFileSync(join(OUT, rel))).length;
+  const src = readFileSync(join(OUT, rel));
+  const gz = gzipSync(src).length;
   js += gz;
   console.log(`  ${rel.padEnd(40)} ${(gz / 1024).toFixed(1).padStart(6)} KB gz`);
+  for (const [name, re] of FORBIDDEN) {
+    if (re.test(src.toString('utf8'))) {
+      console.log(`  ! ${name} is on the new tab's critical path (in ${rel})`);
+      leaked = true;
+    }
+  }
 }
+if (leaked) process.exitCode = 1;
 
 const fontDir = join(OUT, 'assets');
 const fonts = readdirSync(fontDir).filter((f) => f.endsWith('.woff2'));

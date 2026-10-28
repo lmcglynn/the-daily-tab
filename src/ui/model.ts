@@ -1,4 +1,4 @@
-import { describeWeather, reportMatches } from '@/lib/extras/weather';
+import { describeWeather, reportMatches } from '@/lib/extras/weather-words';
 import type {
   Edition,
   Feed,
