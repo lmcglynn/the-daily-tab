@@ -42,8 +42,6 @@ try {
       el.dispatchEvent(new Event('input', { bubbles: true }));
       el.dispatchEvent(new Event(${JSON.stringify(type)}, { bubbles: true }));
     })()`);
-  const click = (selector) =>
-    page.eval(`document.querySelector(${JSON.stringify(selector)}).click()`);
   const clickText = (text, scope = 'button') =>
     page.eval(
       `[...document.querySelectorAll(${JSON.stringify(scope)})].find((b) => b.textContent.trim() === ${JSON.stringify(text)}).click()`,
