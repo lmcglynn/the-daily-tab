@@ -34,7 +34,8 @@
 >
   {#if variant === 'brief'}
     <h3 id={headingId} class="headline">
-      {#if story.isNew}<span class="dot" title="New since your last visit"></span>{/if}
+      {#if story.isNew}<span class="dot" title="New since your last visit" aria-hidden="true"
+        ></span><span class="visually-hidden">New: </span>{/if}
       <a href={story.link} onclick={open} onauxclick={open}>{story.title}</a>
     </h3>
     <p class="byline">
@@ -43,7 +44,8 @@
   {:else}
     {#if kicker}
       <p class="kicker">
-        {#if story.isNew}<span class="dot" title="New since your last visit"></span>{/if}{kicker}
+        {#if story.isNew}<span class="dot" title="New since your last visit" aria-hidden="true"
+          ></span><span class="visually-hidden">New since your last visit: </span>{/if}{kicker}
       </p>
     {/if}
     {#if variant === 'lead'}

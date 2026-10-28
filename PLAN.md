@@ -79,10 +79,17 @@ fonts < 300 KB total · 50-feed refresh < 30 s.
 
 ## 5. Polish
 
-- [ ] Keyboard: j/k, o/Enter, r, n (no autofocus reliance)
-- [ ] Accessibility pass: contrast ≥ 4.5:1 both editions, landmarks, labels
-- [ ] First-run flow ("Choose your sections")
-- [ ] Font loading (preload, `font-display`)
-- [ ] Performance budget check (`npm run size`, timing). Cold first tab is ~120 ms: most of it
-      is parsing ~55 KB gz JS before data is requested. Options: start the IndexedDB/storage
-      reads in a tiny pre-module, or read the three critical-path stores without Dexie.
+- [x] Keyboard: j/k, o/Enter, r, n (document-level listener; no autofocus reliance; ignored
+      while typing or with modifiers); key hints in the colophon
+- [x] Accessibility: contrast test (both editions, worst-case grain), skip link, single main,
+      h1/h2/h3 per spec, every story an article, screen-reader text for "new" dots, polite
+      live region for the new-edition button, focus ring in the spot color
+- [x] First-run flow: sections chooser (fixed: unticking every box no longer re-ticks them),
+      "no feeds yet" state with a Settings link; Settings link in the colophon
+- [x] Font loading: critical faces preloaded by a Vite plugin in wxt.config.ts and set to
+      `font-display: block`; headline face ready at first paint in 7/7 tabs
+- [x] Performance: `public/prefetch.js` (async classic script) starts the cache reads during
+      HTML parsing; Dexie lazy-loaded in the new tab (critical-path JS 55.7 → 29.3 KB gz).
+      Warm: headlines in the page ~73 ms median, painted in final fonts ~103 ms. Cold first
+      tab after browser start: ~126 / ~174 ms. Fixed per-tab cost of the first layout (~25 ms,
+      independent of page content; see verify:newtab phase marks) is the remaining floor.

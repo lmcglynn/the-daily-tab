@@ -53,21 +53,36 @@ try {
   console.log('after install:', JSON.stringify(summary));
 
   // Alarm path: fire the refresh alarm soon and check the worker handles it.
-  const before = (await dbSummary()).editions.length;
-  await sw.eval(`chrome.alarms.create('refresh', { when: Date.now() + 1000 })`);
   const lastFetched = () =>
     sw.eval(`new Promise((resolve) => {
       const req = indexedDB.open('daily-tab');
       req.onsuccess = () => {
-        const g = req.result.transaction('feedState').objectStore('feedState').getAll();
-        g.onsuccess = () => resolve(Math.max(...g.result.map((s) => s.lastFetchedAt || 0)));
+        const db = req.result;
+        const g = db.transaction('feedState').objectStore('feedState').getAll();
+        g.onsuccess = () => {
+          db.close();
+          const done = g.result.filter((s) => s.lastFetchedAt).length;
+          resolve({ max: Math.max(0, ...g.result.map((s) => s.lastFetchedAt || 0)), done });
+        };
       };
     })`);
-  const t0 = await lastFetched();
-  let t1 = t0;
-  for (let i = 0; i < 40 && t1 === t0; i++) {
+  // Seeding on install also schedules a (cheap, conditional) refresh ~1.5 s later, and a slow
+  // feed can hold a refresh open until its 15 s timeout. An alarm during a running refresh
+  // joins it rather than starting another, so wait until every feed has a result and things
+  // have been quiet for 3 s.
+  for (let quiet = 0, last = await lastFetched(); quiet < 6 || last.done < feeds;) {
     await sleep(500);
-    t1 = await lastFetched();
+    const now = await lastFetched();
+    quiet = now.max === last.max ? quiet + 1 : 0;
+    last = now;
+  }
+  const before = (await dbSummary()).editions.length;
+  await sw.eval(`chrome.alarms.create('refresh', { when: Date.now() + 1000 })`);
+  const t0 = (await lastFetched()).max;
+  let t1 = t0;
+  for (let i = 0; i < 40 && t1 <= t0; i++) {
+    await sleep(500);
+    t1 = (await lastFetched()).max;
   }
   console.log(
     `alarm refresh ran: ${t1 > t0} (editions ${before} → ${(await dbSummary()).editions.length}; unchanged layout is not re-published)`,

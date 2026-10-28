@@ -2,7 +2,7 @@
   import { onMount, tick } from 'svelte';
   import { browser } from 'wxt/browser';
   import { applyAppearance } from '@/lib/appearance';
-  import { getDB } from '@/lib/db';
+  import type { DailyTabDB } from '@/lib/db';
   import { DEFAULT_SETTINGS } from '@/lib/defaults';
   import {
     loadEditionItems,
@@ -20,9 +20,12 @@
   import { getFeeds, isFeedKey, removeFeed, saveSettings, setLastVisitAt } from '@/lib/storage';
   import type { Edition, Item, Settings } from '@/lib/types';
   import FrontPage from '@/ui/FrontPage.svelte';
+  import { keyAction, step } from '@/ui/keys';
   import { buildFrontPage } from '@/ui/model';
 
-  const db = getDB();
+  // Dexie isn't needed for the first paint (public/prefetch.js reads the cache), so it loads
+  // after; everything that writes or reads more waits for it.
+  const dbReady: Promise<DailyTabDB> = import('@/lib/db').then((m) => m.getDB());
   const openedAt = Date.now();
 
   let snap = $state.raw<Snapshot | null>(null);
@@ -59,19 +62,30 @@
   // Load ------------------------------------------------------------------------------------
 
   async function load() {
-    snap = await loadSnapshot(db);
+    snap = await loadSnapshot(() => dbReady);
     performance.mark('dt:data');
     applyAppearance(snap.settings);
     await tick();
-    // Budget: first headlines from cache in < 100 ms (checked by scripts/verify-newtab.mjs).
+    // Budget (< 100 ms, scripts/verify-newtab.mjs): headlines from cache are in the page.
     performance.mark('first-headlines');
     if (!snap.edition) void resumeFirstRun();
+    // Faces are preloaded and font-display: block, so text first paints in its real typeface.
+    // Also record when that is (after the first layout pulls the fonts in).
+    requestAnimationFrame(() => {
+      void document.fonts.ready.then(() => {
+        performance.mark('dt:headlines-visible');
+        if (!document.fonts.check('700 20px "Playfair Display"')) {
+          performance.mark('dt:fonts-late');
+        }
+      });
+    });
   }
 
   // Live updates ----------------------------------------------------------------------------
 
   async function onEdition(id: string) {
     if (!snap || snap.edition?.id === id || pending?.edition.id === id) return;
+    const db = await dbReady;
     const edition = await db.editions.get(id);
     if (!edition) return;
     const items = await loadEditionItems(db, edition);
@@ -102,7 +116,7 @@
   }
 
   async function reloadStates() {
-    if (snap) snap = { ...snap, states: await db.feedState.toArray() };
+    if (snap) snap = { ...snap, states: await (await dbReady).feedState.toArray() };
   }
 
   function onMessage(msg: Broadcast) {
@@ -132,7 +146,7 @@
     const item = snap.items.get(id);
     if (!item) return;
     const t = Date.now();
-    const write = markRead(db, id, t);
+    const write = dbReady.then((db) => markRead(db, id, t));
     snap = { ...snap, items: withItems(snap.items, [{ ...item, readAt: t }]) };
 
     // A plain click leaves the page; give the write a moment to land first.
@@ -151,7 +165,7 @@
       more = withEntry(more, category, null);
       return;
     }
-    const extra = await moreInSection(db, snap.feeds, category, shownKeys(snap.items));
+    const extra = await moreInSection(await dbReady, snap.feeds, category, shownKeys(snap.items));
     snap = { ...snap, items: withItems(snap.items, extra) };
     more = withEntry(
       more,
@@ -217,7 +231,7 @@
 
   async function press() {
     await browser.runtime.sendMessage({ type: 'refresh', force: true }).catch(() => undefined);
-    const edition = await db.latestEdition();
+    const edition = await (await dbReady).latestEdition();
     if (edition) await onEdition(edition.id);
     else if (snap && !snap.edition) {
       starting = false;
@@ -227,10 +241,44 @@
     }
   }
 
+  // Keyboard --------------------------------------------------------------------------------
+
+  /** Headline links in reading order: lead, secondary, bands (and "More"), In Brief. */
+  const storyLinks = () => [
+    ...document.querySelectorAll<HTMLAnchorElement>('main article[data-story] .headline a'),
+  ];
+
+  let current = -1;
+
+  function onKey(e: KeyboardEvent) {
+    const action = keyAction(e);
+    if (!action || !snap?.edition) return;
+    e.preventDefault();
+    const links = storyLinks();
+    // Tabbing or clicking moves the reading position too.
+    const focused = links.indexOf(document.activeElement as HTMLAnchorElement);
+    if (focused !== -1) current = focused;
+
+    if (action === 'next' || action === 'prev') {
+      current = step(current, links.length, action === 'next' ? 1 : -1);
+      const link = links[current];
+      if (!link) return;
+      link.focus({ preventScroll: true });
+      link.closest('article')?.scrollIntoView({ block: 'nearest' });
+    } else if (action === 'open') {
+      (links[current] ?? links[0])?.click();
+    } else if (action === 'refresh') {
+      void refresh();
+    } else if (action === 'new') {
+      showNewEdition();
+    }
+  }
+
   // Lifecycle -------------------------------------------------------------------------------
 
   onMount(() => {
     void load();
+    document.addEventListener('keydown', onKey);
 
     browser.runtime.onMessage.addListener(onMessage);
     browser.storage.onChanged.addListener(onStorage);
@@ -248,6 +296,7 @@
     const clock = setInterval(() => (now = Date.now()), 30_000);
 
     return () => {
+      document.removeEventListener('keydown', onKey);
       browser.runtime.onMessage.removeListener(onMessage);
       browser.storage.onChanged.removeListener(onStorage);
       removeEventListener('online', setOnline);
@@ -271,5 +320,6 @@
     onshownew={showNewEdition}
     onstart={start}
     onrefresh={refresh}
+    settingsUrl={browser.runtime.getURL('/options.html')}
   />
 {/if}

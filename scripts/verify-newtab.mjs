@@ -57,35 +57,122 @@ try {
 
   step('timing first headlines from cache');
   const times = [];
-  for (let i = 0; i < 5; i++) {
+  const visible = [];
+  let fontsLate = 0;
+  const TABS = 7;
+  const mark = (p, n) => p.eval(`performance.getEntriesByName('${n}')[0]?.startTime`);
+  for (let i = 0; i < TABS; i++) {
     const page = await browser.newPage();
     await page.navigate(newtab);
-    let t;
-    for (let j = 0; j < 40 && t === undefined; j++) {
-      t = await page.eval(`performance.getEntriesByName('first-headlines')[0]?.startTime`);
-      if (t === undefined) await sleep(50);
+    let t, v;
+    for (let j = 0; j < 40 && v === undefined; j++) {
+      [t, v] = [await mark(page, 'first-headlines'), await mark(page, 'dt:headlines-visible')];
+      if (v === undefined) await sleep(50);
     }
     const headlines = await page.eval(`document.querySelectorAll('article h2, article h3').length`);
     const phases = await page.eval(`(() => {
       const m = (n) => performance.getEntriesByName(n)[0]?.startTime?.toFixed(0);
       const nav = performance.getEntriesByType('navigation')[0];
-      return 'response ' + nav.responseEnd.toFixed(0) + ' · script ' + m('dt:script') + ' · data ' + m('dt:data') + ' · headlines ' + m('first-headlines');
+      return 'response ' + nav.responseEnd.toFixed(0) + ' · script ' + m('dt:script') + ' · data ' + m('dt:data') + ' · headlines ' + m('first-headlines') + ' · visible in final fonts ' + m('dt:headlines-visible');
     })()`);
     console.log(`     tab ${i + 1}: ${phases}`);
+    if (await page.eval(`performance.getEntriesByName('dt:fonts-late').length > 0`)) fontsLate++;
     times.push(t ?? Infinity);
+    visible.push(v ?? Infinity);
     if (i === 0) check(headlines > 10, `front page shows ${headlines} headlines`);
     page.close();
   }
-  times.sort((a, b) => a - b);
-  const median = times[2];
+  // Tab 1 is the cold start (fresh renderer, no code cache); the budget is about warm tabs.
+  const median = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
+  const warm = times.slice(1);
+  const list = (a) => a.map((t) => t.toFixed(0)).join(', ');
   check(
-    median < 100,
-    `first headlines from cache: median ${median.toFixed(1)} ms (${times.map((t) => t.toFixed(0)).join(', ')})`,
+    median(warm) < 100,
+    `first headlines from cache: median ${median(warm).toFixed(1)} ms (${list(warm)})`,
   );
+  console.log(
+    `info visible in final fonts: median ${median(visible.slice(1)).toFixed(1)} ms; ` +
+      `cold first tab: headlines ${times[0].toFixed(0)} ms, visible ${visible[0].toFixed(0)} ms`,
+  );
+  check(fontsLate === 0, `headline font ready at first paint in ${TABS - fontsLate}/${TABS} tabs`);
 
   const page = await browser.newPage();
+  await page.send('Page.bringToFront');
   await page.navigate(newtab);
   await sleep(500);
+
+  // Real key events, as typed on the page.
+  const press = async (p, k) => {
+    const vk = k === 'Enter' ? 13 : k.toUpperCase().charCodeAt(0);
+    await p.send('Input.dispatchKeyEvent', {
+      type: 'keyDown',
+      key: k,
+      code: k === 'Enter' ? 'Enter' : `Key${k.toUpperCase()}`,
+      windowsVirtualKeyCode: vk,
+      ...(k.length === 1 && { text: k }),
+    });
+    await p.send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, windowsVirtualKeyCode: vk });
+  };
+  const focusedStory = (p) =>
+    p.eval(`document.activeElement?.closest('article')?.dataset.story ?? null`);
+
+  step('accessibility structure');
+  const a11y = await page.eval(`(() => {
+    const q = (s) => document.querySelectorAll(s);
+    const headlines = [...q('main .headline')];
+    return {
+      h1: q('h1').length,
+      h1Label: q('h1')[0]?.getAttribute('aria-label'),
+      leadH2: !!document.querySelector('.slot-lead article h2.headline'),
+      otherH3: headlines.filter((h) => !h.closest('.slot-lead')).every((h) => h.tagName === 'H3'),
+      allInArticles: headlines.every((h) => h.closest('article')),
+      main: q('main').length,
+      skip: document.querySelector('a.skip')?.getAttribute('href'),
+      dotsHaveText: [...q('.dot')].every((d) => d.nextElementSibling?.classList.contains('visually-hidden')),
+      liveRegion: !!document.querySelector('[role=status][aria-live=polite]'),
+      imgAlt: [...q('main img')].every((i) => i.getAttribute('alt') === '' && i.closest('[aria-hidden=true]')),
+      lang: document.documentElement.lang,
+    };
+  })()`);
+  check(a11y.h1 === 1 && a11y.h1Label, `one h1 with a plain-text label ("${a11y.h1Label}")`);
+  check(a11y.leadH2 && a11y.otherH3, 'lead headline is h2, all others h3');
+  check(a11y.allInArticles, 'every story is an <article>');
+  check(a11y.main === 1 && a11y.skip === '#front', 'single <main> with a skip link');
+  check(a11y.dotsHaveText, '"new" dots carry screen-reader text');
+  check(a11y.liveRegion, 'new-edition button sits in a polite live region');
+  check(a11y.imgAlt && a11y.lang === 'en', 'decorative photos hidden from AT; lang="en"');
+
+  step('keyboard: j / k');
+  await press(page, 'j');
+  const s1 = await focusedStory(page);
+  await press(page, 'j');
+  const s2 = await focusedStory(page);
+  await press(page, 'k');
+  const s3 = await focusedStory(page);
+  const leadId = await page.eval(`document.querySelector('.slot-lead article').dataset.story`);
+  check(
+    s1 === leadId && s2 && s2 !== s1 && s3 === s1,
+    'j moves to the lead, then on; k moves back',
+  );
+  const ring = await page.eval(
+    `getComputedStyle(document.activeElement).outlineStyle + ' ' + document.activeElement.matches(':focus-visible')`,
+  );
+  check(ring === 'solid true', `focused story shows a focus ring (${ring})`);
+
+  step('keyboard: r');
+  await press(page, 'r');
+  let updating = false;
+  for (let i = 0; i < 10 && !updating; i++) {
+    updating = await page.eval(
+      `document.querySelector('.refresh')?.textContent.includes('Updating') ?? false`,
+    );
+    if (!updating) await sleep(50);
+  }
+  check(updating, 'r starts a refresh ("Updating…" in the folio)');
+  for (let i = 0; i < 60; i++) {
+    if (!(await page.eval(`document.querySelector('.refresh')?.disabled ?? false`))) break;
+    await sleep(250);
+  }
 
   step('read state (middle-click, no navigation)');
   const readId = await page.eval(`(() => {
@@ -142,12 +229,12 @@ try {
     titleDuring === titleBefore && scrollDuring === scrollBefore,
     'page did not reflow while the button waits',
   );
-  await page.eval(`document.querySelector('.new-edition')?.click()`);
+  await press(page, 'n');
   await sleep(400);
   const shown = await page.eval(
     `document.body.innerText.includes('Verification story arrives in a new edition') && !document.querySelector('.new-edition')`,
   );
-  check(shown, 'clicking the button shows the new edition');
+  check(shown, 'n shows the new edition');
 
   step('offline folio');
   await page.send('Network.enable');
@@ -181,6 +268,28 @@ try {
     `(document.querySelector('.corrections')?.innerText ?? '').replace(/\\s+/g, ' ').trim()`,
   );
   check(/could not be reached at \d+:\d\d/i.test(corrections), `corrections box: "${corrections}"`);
+
+  step('keyboard: o opens the current story');
+  await page2.send('Page.bringToFront');
+  await press(page2, 'j');
+  const target = await page2.eval(`document.activeElement.href`);
+  const targetId = await focusedStory(page2);
+  await press(page2, 'o');
+  let href = newtab;
+  for (let i = 0; i < 20 && href.startsWith(newtab); i++) {
+    await sleep(150);
+    href = await page2.eval('location.href').catch(() => href);
+  }
+  const marked = await sw.eval(
+    idb(`(db, done) => {
+      const g = db.transaction('items').objectStore('items').get(${JSON.stringify(targetId)});
+      g.onsuccess = () => done(typeof g.result?.readAt === 'number');
+    }`),
+  );
+  check(
+    !href.startsWith('chrome-extension://') && marked,
+    `o navigated to the story (${target.slice(0, 60)}…) and marked it read`,
+  );
   page2.close();
   page.close();
   sw.close();

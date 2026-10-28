@@ -5,6 +5,7 @@ import {
   moreInSection,
   newStoryCount,
   shownKeys,
+  snapshotFromPrefetch,
   withEntry,
   withItems,
 } from '@/lib/frontpage-data';
@@ -99,6 +100,32 @@ describe('copy-on-write helpers', () => {
     const m = new Map([['World', ['x']]]);
     expect(withEntry(m, 'World', null).has('World')).toBe(false);
     expect(m.has('World')).toBe(true);
+  });
+});
+
+describe('snapshotFromPrefetch', () => {
+  it('builds a snapshot from the prefetched reads', () => {
+    const a = item({ id: 'a', feedId: 'w1' });
+    const snap = snapshotFromPrefetch({
+      db: { edition: edition({}), items: [a], states: [] },
+      sync: {
+        settings: { paperName: 'The Ledger' },
+        'feed:t1': feeds[2],
+        'feed:w1': feeds[0],
+        other: 1,
+      },
+      local: { lastVisitAt: NOW },
+    })!;
+    expect(snap.items.get('a')).toBe(a);
+    expect(snap.feeds.map((f) => f.id)).toEqual(['w1', 't1']);
+    expect(snap.settings.paperName).toBe('The Ledger');
+    expect(snap.settings.refreshMinutes).toBe(15); // defaults fill the rest
+    expect(snap.lastVisitAt).toBe(NOW);
+  });
+
+  it('falls back (null) when the database could not be read', () => {
+    expect(snapshotFromPrefetch(null)).toBeNull();
+    expect(snapshotFromPrefetch({ db: null, sync: {}, local: {} })).toBeNull();
   });
 });
 

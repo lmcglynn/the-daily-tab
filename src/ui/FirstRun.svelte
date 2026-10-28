@@ -5,51 +5,64 @@
     sections,
     busy = false,
     error = '',
+    settingsUrl = null,
     onstart,
   }: {
     sections: SectionChoice[];
     busy?: boolean;
     error?: string | undefined;
+    settingsUrl?: string | null;
     onstart?: (chosen: string[]) => void;
   } = $props();
 
+  // Everything starts ticked, once; after that the reader's choice stands (even "none").
   let chosen = $state<string[]>([]);
+  let initialised = false;
   $effect.pre(() => {
-    if (chosen.length === 0) chosen = sections.map((s) => s.name);
+    if (!initialised && sections.length) {
+      chosen = sections.map((s) => s.name);
+      initialised = true;
+    }
   });
 </script>
 
 <article class="first-run" aria-labelledby="first-run-title">
   <p class="kicker">Welcome</p>
-  <h2 id="first-run-title" class="headline">Choose your sections</h2>
-  <p class="deck">
-    Pick what lands on your front page. Each section is fed by a few trusted newsrooms; you can add
-    any site with a feed later in Settings.
-  </p>
-  <form
-    onsubmit={(e) => {
-      e.preventDefault();
-      onstart?.(chosen);
-    }}
-  >
-    <fieldset>
-      <legend class="visually-hidden">Sections</legend>
-      {#each sections as s (s.name)}
-        <label class="choice">
-          <input type="checkbox" value={s.name} bind:group={chosen} />
-          <span class="name">{s.name}</span>
-          <span class="feeds">{s.feeds.join(' · ')}</span>
-        </label>
-      {/each}
-    </fieldset>
-    <button class="start" type="submit" disabled={busy || chosen.length === 0}>
-      {busy ? 'Going to press…' : 'Print the first edition'}
-    </button>
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
-    <p class="note">
-      Your browser will ask to let The Daily Tab read these sites' feeds. Nothing else is shared.
+  {#if sections.length === 0}
+    <h2 id="first-run-title" class="headline">Your paper has no feeds yet</h2>
+    <p class="deck">Add a news site or feed in Settings and the first edition will print here.</p>
+    {#if settingsUrl}<a class="start" href={settingsUrl}>Open Settings</a>{/if}
+  {:else}
+    <h2 id="first-run-title" class="headline">Choose your sections</h2>
+    <p class="deck">
+      Pick what lands on your front page. Each section is fed by a few trusted newsrooms; you can
+      add any site with a feed later in Settings.
     </p>
-  </form>
+    <form
+      onsubmit={(e) => {
+        e.preventDefault();
+        onstart?.(chosen);
+      }}
+    >
+      <fieldset>
+        <legend class="visually-hidden">Sections</legend>
+        {#each sections as s (s.name)}
+          <label class="choice">
+            <input type="checkbox" value={s.name} bind:group={chosen} />
+            <span class="name">{s.name}</span>
+            <span class="feeds">{s.feeds.join(' · ')}</span>
+          </label>
+        {/each}
+      </fieldset>
+      <button class="start" type="submit" disabled={busy || chosen.length === 0}>
+        {busy ? 'Going to press…' : 'Print the first edition'}
+      </button>
+      {#if error}<p class="error" role="alert">{error}</p>{/if}
+      <p class="note">
+        Your browser will ask to let The Daily Tab read these sites' feeds. Nothing else is shared.
+      </p>
+    </form>
+  {/if}
 </article>
 
 <style>
@@ -101,6 +114,7 @@
     color: var(--ink-2);
   }
   .start {
+    display: inline-block;
     font: 700 13px/1 var(--font-label);
     letter-spacing: 0.16em;
     text-transform: uppercase;

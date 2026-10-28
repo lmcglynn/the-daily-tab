@@ -65,6 +65,12 @@ Node is installed machine-wide (`C:\Program Files\nodejs`). In the Bash tool, pr
 
 ## Conventions
 
+- New-tab critical path: `public/prefetch.js` (async, dependency-free) reads IndexedDB and
+  storage during HTML parsing; `loadSnapshot` uses it once, falling back to Dexie, which the new
+  tab imports lazily. Keep Dexie and other heavy modules off the new tab's static imports
+  (`npm run size` follows static imports only). prefetch.js must never create the database.
+- Fonts: critical faces are preloaded by the `preloadFonts` plugin in `wxt.config.ts` and use
+  `font-display: block`; add a new face to its regex if it appears above the fold.
 - The background service worker owns all network work. The new tab never fetches feeds; it reads
   the latest Edition from IndexedDB and listens for `edition-updated` messages.
 - Never render feed HTML. Summaries are reduced to plain text (≤ ~300 chars) by `lib/feed/text.ts`.

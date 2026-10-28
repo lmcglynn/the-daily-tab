@@ -15,8 +15,11 @@
     onshownew,
     onstart,
     onrefresh,
+    settingsUrl = null,
   }: {
     view: FrontPageView;
+    /** Link to the settings page (absent in the dev preview). */
+    settingsUrl?: string | null;
     /** Present until the first edition exists. */
     firstRun?: { sections: SectionChoice[]; busy: boolean; error?: string } | null;
     /** A newer edition is waiting; shown as a button, never reflowed in. */
@@ -34,23 +37,29 @@
   const widths = [96, 88, 92, 70, 84, 40];
 </script>
 
+<a class="skip" href="#front">Skip to the stories</a>
+
 <div class="page" class:fresh>
   <Masthead {view} {refreshing} onrefresh={firstRun ? undefined : onrefresh} />
 
-  {#if newEdition}
-    <button class="new-edition" type="button" onclick={() => onshownew?.()}>
-      New edition · {newEdition.count}
-      {newEdition.count === 1 ? 'story' : 'stories'}
-    </button>
-  {/if}
+  <!-- Always present so screen readers announce the button when it appears. -->
+  <div class="new-edition-slot" role="status" aria-live="polite">
+    {#if newEdition}
+      <button class="new-edition" type="button" onclick={() => onshownew?.()}>
+        New edition · {newEdition.count}
+        {newEdition.count === 1 ? 'story' : 'stories'}
+      </button>
+    {/if}
+  </div>
 
   {#if firstRun}
-    <main class="grid">
+    <main class="grid" id="front" tabindex="-1">
       <div class="slot-lead">
         <FirstRun
           sections={firstRun.sections}
           busy={firstRun.busy}
           error={firstRun.error}
+          {settingsUrl}
           {onstart}
         />
       </div>
@@ -80,7 +89,7 @@
       </div>
     </main>
   {:else}
-    <main class="grid" id="front">
+    <main class="grid" id="front" tabindex="-1">
       {#if view.lead}
         <div class="slot-lead">
           <Story story={view.lead} variant="lead" {onopen} />
@@ -148,21 +157,93 @@
     </main>
 
     {#if view.corrections.length}
-      <footer class="corrections" aria-labelledby="corrections-name">
+      <section class="corrections" aria-labelledby="corrections-name">
         <h2 id="corrections-name">Corrections</h2>
         <ul>
           {#each view.corrections as c (c)}<li>{c}</li>{/each}
         </ul>
-      </footer>
+      </section>
     {/if}
   {/if}
+
+  <footer class="colophon">
+    <p>
+      <span class="paper-name">{view.paperName}</span>
+      {#if settingsUrl}<span class="sep" aria-hidden="true">·</span><a href={settingsUrl}
+          >Settings</a
+        >{/if}
+    </p>
+    <p class="keys" aria-label="Keyboard shortcuts">
+      <kbd>j</kbd> <kbd>k</kbd> next / previous story · <kbd>o</kbd> open · <kbd>r</kbd> refresh ·
+      <kbd>n</kbd> new edition
+    </p>
+  </footer>
 </div>
 
 <style>
   .page {
     max-width: var(--page-max);
     margin: 0 auto;
-    padding: 0 var(--page-pad) 56px;
+    padding: 0 var(--page-pad) 32px;
+  }
+  .skip {
+    position: absolute;
+    left: 16px;
+    top: -60px;
+    z-index: 20;
+    padding: 8px 12px;
+    background: var(--ink);
+    color: var(--paper);
+    font: 700 13px/1 var(--font-label);
+  }
+  .skip:focus {
+    top: 12px;
+  }
+  #front:focus {
+    outline: none;
+  }
+  .colophon {
+    margin-top: 48px;
+    padding-top: 12px;
+    border-top: 1px solid var(--rule-ink);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px 24px;
+    font: 500 11.5px/1.6 var(--font-label);
+    letter-spacing: 0.06em;
+    color: var(--ink-2);
+  }
+  .colophon p {
+    margin: 0;
+  }
+  .paper-name {
+    font-family: var(--font-masthead);
+    font-size: 17px;
+    letter-spacing: 0;
+    color: var(--ink);
+  }
+  .colophon .sep {
+    margin: 0 8px;
+  }
+  .colophon a {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+  .colophon a:hover {
+    color: var(--ink);
+  }
+  kbd {
+    font: 700 11px/1 var(--font-label);
+    padding: 2px 5px;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    color: var(--ink);
+  }
+  @media (max-width: 859px) {
+    .keys {
+      display: none;
+    }
   }
   .fresh {
     animation: fade-in var(--fade) ease-out;

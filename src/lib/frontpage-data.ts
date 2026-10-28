@@ -1,7 +1,8 @@
 // Everything the new tab reads, all from local storage; no network on this path.
 import type { DailyTabDB } from './db';
 import { editionItemIds } from './edition/compose';
-import { getFeeds, getLastVisitAt, getSettings } from './storage';
+import { DEFAULT_SETTINGS } from './defaults';
+import { getFeeds, getLastVisitAt, getSettings, isFeedKey } from './storage';
 import type { Edition, Feed, FeedState, Item, Settings } from './types';
 
 export interface Snapshot {
@@ -14,7 +15,46 @@ export interface Snapshot {
   lastVisitAt: number | undefined;
 }
 
-export async function loadSnapshot(db: DailyTabDB): Promise<Snapshot> {
+/** What public/prefetch.js leaves on globalThis.__dailyTabPrefetch. */
+export interface PrefetchRaw {
+  db: { edition: Edition | null; items: Item[]; states: FeedState[] } | null;
+  sync: Record<string, unknown>;
+  local: Record<string, unknown>;
+}
+
+/** Build a snapshot from the prefetched reads; null means "fall back to Dexie". */
+export function snapshotFromPrefetch(raw: PrefetchRaw | null): Snapshot | null {
+  if (!raw?.db) return null;
+  const feeds = Object.entries(raw.sync)
+    .filter(([k]) => isFeedKey(k))
+    .map(([, v]) => v as Feed)
+    .sort((a, b) => a.order - b.order);
+  const lastVisitAt = raw.local.lastVisitAt;
+  return {
+    edition: raw.db.edition,
+    items: new Map(raw.db.items.map((i) => [i.id, i])),
+    feeds,
+    states: raw.db.states,
+    settings: { ...DEFAULT_SETTINGS, ...(raw.sync.settings as Partial<Settings> | undefined) },
+    lastVisitAt: typeof lastVisitAt === 'number' ? lastVisitAt : undefined,
+  };
+}
+
+const prefetchSlot = globalThis as { __dailyTabPrefetch?: Promise<PrefetchRaw | null> };
+
+/**
+ * Load everything the front page shows. `getDb` is only awaited on the fallback path, so the
+ * new tab can paint without Dexie having loaded.
+ */
+export async function loadSnapshot(getDb: () => Promise<DailyTabDB>): Promise<Snapshot> {
+  // First load of a new tab: the reads started during HTML parsing (consumed once).
+  const prefetched = prefetchSlot.__dailyTabPrefetch;
+  if (prefetched) {
+    delete prefetchSlot.__dailyTabPrefetch;
+    const snap = snapshotFromPrefetch(await prefetched);
+    if (snap) return snap;
+  }
+  const db = await getDb();
   const editionP = db.latestEdition();
   const itemsP = editionP.then((e) => (e ? loadEditionItems(db, e) : new Map<string, Item>()));
   const [edition, items, feeds, states, settings, lastVisitAt] = await Promise.all([

@@ -1,9 +1,43 @@
+import type { Plugin } from 'vite';
 import { defineConfig } from 'wxt';
 import { originPatterns, starterFeeds } from './src/lib/seed';
+
+// Faces visible above the fold. Preloading them from the new tab's <head> means the first
+// paint already uses them: no fallback-to-webfont swap on a page meant to feel printed.
+const CRITICAL_FONTS =
+  /(unifrakturmaguntia-latin-400-normal|playfair-display-latin-700-normal|newsreader-latin-400-(normal|italic)|libre-franklin-latin-(500|700)-normal)-[\w-]+\.woff2$/;
+
+function preloadFonts(): Plugin {
+  return {
+    name: 'daily-tab:preload-fonts',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        if (!ctx.bundle || !/newtab/.test(ctx.filename)) return html;
+        const fonts = Object.keys(ctx.bundle).filter((f) => CRITICAL_FONTS.test(f));
+        return {
+          html,
+          tags: fonts.map((f) => ({
+            tag: 'link',
+            attrs: {
+              rel: 'preload',
+              href: `/${f}`,
+              as: 'font',
+              type: 'font/woff2',
+              crossorigin: '',
+            },
+            injectTo: 'head' as const,
+          })),
+        };
+      },
+    },
+  };
+}
 
 export default defineConfig({
   srcDir: 'src',
   modules: ['@wxt-dev/module-svelte'],
+  vite: () => ({ plugins: [preloadFonts()] }),
   manifest: ({ mode }) => ({
     name: 'The Daily Tab',
     description: 'Your news, set like the front page of a printed paper.',

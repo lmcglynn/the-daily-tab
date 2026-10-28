@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>New Tab</title>
+    <!-- Starts the cache reads early without blocking the parser; see public/prefetch.js.
+         If it ever runs after the app, the app simply reads through Dexie instead. -->
+    <script async src="/prefetch.js"></script>
   </head>
   <body>
     <div id="app"></div>
