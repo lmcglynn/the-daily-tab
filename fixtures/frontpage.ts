@@ -282,7 +282,11 @@ export const settings: Settings = {
     lon: -122.3321,
   },
   units: 'f',
-  showMarket: true,
+  tickers: [
+    { symbol: '^GSPC', name: 'S&P 500' },
+    { symbol: '^DJI', name: 'Dow' },
+    { symbol: 'AAPL', name: 'Apple Inc.' },
+  ],
 };
 
 export const lastVisitAt = at(8, 10);
@@ -299,23 +303,32 @@ export const weather: WeatherReport = {
   low: 40.6,
 };
 
-/** A morning on the S&P 500: opens soft, recovers (deterministic walk for screenshots). */
-export const market: MarketReport = (() => {
+/** A morning's trading (deterministic walk so screenshots are stable). */
+function quote(symbol: string, name: string, previousClose: number, drift: number): MarketReport {
   const points: number[] = [];
-  let v = 7722.6;
+  let v = previousClose;
   for (let i = 0; i < 26; i++) {
-    v += Math.sin(i / 3) * 4 + (i > 8 ? 1.6 : -2.2);
+    v += (Math.sin(i / 3) * 4 + (i > 8 ? 1.6 : -2.2) * drift) * (previousClose / 7700);
     points.push(Math.round(v * 100) / 100);
   }
   return {
     at: NOW - 3 * 60_000,
+    symbol,
+    name,
+    currency: 'USD',
     price: points.at(-1)!,
-    previousClose: 7722.6,
+    previousClose,
     marketTime: NOW - 15 * 60_000,
     timezone: 'America/New_York',
     points,
   };
-})();
+}
+
+export const markets: Record<string, MarketReport> = {
+  '^GSPC': quote('^GSPC', 'S&P 500', 7722.6, 1),
+  '^DJI': quote('^DJI', 'Dow Jones Industrial Average', 52610.2, -1.4),
+  AAPL: quote('AAPL', 'Apple Inc.', 343.1, 0.8),
+};
 
 export const states: FeedState[] = feeds.map((f) =>
   f.title === 'Scientific American'

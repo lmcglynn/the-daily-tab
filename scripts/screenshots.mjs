@@ -11,6 +11,8 @@ const PORT = 5299;
 const only = process.argv.find((a) => a.startsWith('--only='))?.slice(7);
 /** --fold: capture just the first screen (for close inspection) into screenshots/fold-*.png */
 const fold = process.argv.includes('--fold');
+/** --clip=<selector>: capture just that element at 2x into screenshots/clip-*.png */
+const clipSel = process.argv.find((a) => a.startsWith('--clip='))?.slice(7);
 
 const SHOTS = [];
 for (const theme of ['day', 'night']) {
@@ -77,8 +79,17 @@ try {
       mobile,
     });
     await sleep(200);
-    const { data } = await page.send('Page.captureScreenshot', { format: 'png' });
-    const file = join(OUT, `${fold ? 'fold-' : ''}${shot.name}.png`);
+    const clip = clipSel
+      ? await page.eval(
+          `(() => { const r = document.querySelector(${JSON.stringify(clipSel)})?.getBoundingClientRect(); return r && { x: r.x - 12, y: r.y + scrollY - 12, width: r.width + 24, height: r.height + 24, scale: 2 }; })()`,
+        )
+      : null;
+    const { data } = await page.send('Page.captureScreenshot', {
+      format: 'png',
+      ...(clip && { clip, captureBeyondViewport: true }),
+    });
+    const prefix = clip ? 'clip-' : fold ? 'fold-' : '';
+    const file = join(OUT, `${prefix}${shot.name}.png`);
     writeFileSync(file, Buffer.from(data, 'base64'));
     console.log(`${shot.name}: ${shot.width}×${height} → ${file}`);
     page.close();

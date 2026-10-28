@@ -49,7 +49,10 @@ export interface WeatherView {
 }
 
 export interface MarketView {
+  symbol: string;
   name: string;
+  /** Show the symbol beside the name (stocks, ETFs; not indexes). */
+  showSymbol: boolean;
   /** "7,737.01" */
   price: string;
   /** "+14.41" */
@@ -97,8 +100,8 @@ export interface FrontPageView {
   lead: StoryView | null;
   /** Headlines under the lead's text. */
   leadColumn: StoryView[];
-  /** S&P 500 box at the foot of the lead's text column. */
-  market: MarketView | null;
+  /** Markets box at the foot of the lead's text column (cycled with arrows). */
+  markets: MarketView[];
   secondary: StoryView[];
   bands: BandView[];
   brief: StoryView[];
@@ -117,7 +120,7 @@ export interface FrontPageInput {
   /** Extra items per section, shown when the reader follows "More in …". */
   more?: Map<string, string[]>;
   weather?: WeatherReport | null;
-  market?: MarketReport | null;
+  markets?: Record<string, MarketReport>;
 }
 
 const WEATHER_MAX_AGE_MS = 6 * 60 * 60_000;
@@ -144,17 +147,45 @@ export function weatherView(
   };
 }
 
-export function marketView(
-  report: MarketReport | null | undefined,
+/** Quotes in the reader's order; tickers with no recent quote are left out. */
+export function marketViews(
+  markets: Record<string, MarketReport> | undefined,
   settings: Settings,
   now: number,
+): MarketView[] {
+  return settings.tickers.flatMap((t) => {
+    const report = markets?.[t.symbol];
+    const view = report ? marketView({ ...report, name: t.name || report.name }, now) : null;
+    return view ? [view] : [];
+  });
+}
+
+const zoneLabel = (tz: string, t: number) => {
+  if (tz === 'America/New_York') return 'ET';
+  if (tz === 'UTC' || tz === 'Etc/UTC') return 'UTC';
+  try {
+    return (
+      new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' })
+        .formatToParts(t)
+        .find((p) => p.type === 'timeZoneName')?.value ?? ''
+    );
+  } catch {
+    return '';
+  }
+};
+
+export function marketView(
+  report: MarketReport | null | undefined,
+  now: number,
 ): MarketView | null {
-  if (!settings.showMarket || !report || now - report.at > MARKET_MAX_AGE_MS) return null;
+  if (!report || now - report.at > MARKET_MAX_AGE_MS) return null;
   const diff = report.price - report.previousClose;
   const pct = report.previousClose ? (diff / report.previousClose) * 100 : 0;
-  const direction = Math.abs(diff) < 0.005 ? 'flat' : diff > 0 ? 'up' : 'down';
+  // Currencies trade in small units: 1.1152, not 1.12.
+  const digits = Math.abs(report.price) < 10 ? 4 : 2;
+  const direction = Math.abs(diff) < 0.5 * 10 ** -digits ? 'flat' : diff > 0 ? 'up' : 'down';
   const fmt = (n: number) =>
-    n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
   const tz = report.timezone;
   const day = (t: number, zone?: string) =>
@@ -171,7 +202,8 @@ export function marketView(
         .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz })
         .replace(' AM', ' a.m.')
         .replace(' PM', ' p.m.');
-      asOf = `As of ${time}${tz === 'America/New_York' ? ' ET' : ''}`;
+      const zone = zoneLabel(tz, report.marketTime);
+      asOf = `As of ${time}${zone ? ` ${zone}` : ''}`;
     } else {
       const date = new Date(report.marketTime).toLocaleDateString('en-US', {
         weekday: 'short',
@@ -186,8 +218,14 @@ export function marketView(
   }
 
   const word = direction === 'up' ? 'up' : direction === 'down' ? 'down' : 'unchanged';
+  const name = report.name || report.symbol;
+  // Indexes have newspaper names; for stocks, ETFs and the like the symbol helps.
+  const showSymbol = !report.symbol.startsWith('^') && name.toUpperCase() !== report.symbol;
+  const units = report.symbol.startsWith('^') ? ' points' : '';
   return {
-    name: 'S&P 500',
+    symbol: report.symbol,
+    name,
+    showSymbol,
     price: fmt(report.price),
     change: `${diff >= 0 ? '+' : '−'}${fmt(Math.abs(diff))}`,
     percent: `${Math.abs(pct).toFixed(2)}%`,
@@ -195,7 +233,7 @@ export function marketView(
     asOf,
     points: report.points,
     previousClose: report.previousClose,
-    label: `S&P 500 ${fmt(report.price)}, ${word} ${fmt(Math.abs(diff))} points or ${Math.abs(pct).toFixed(2)} percent. ${asOf}.`,
+    label: `${name} ${fmt(report.price)}${report.currency && !units ? ` ${report.currency}` : ''}, ${word} ${fmt(Math.abs(diff))}${units} or ${Math.abs(pct).toFixed(2)} percent. ${asOf}.`,
   };
 }
 
@@ -280,7 +318,7 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
     pinned: settings.pinnedLinks,
     lead,
     leadColumn,
-    market: edition ? marketView(input.market, settings, now) : null,
+    markets: edition ? marketViews(input.markets, settings, now) : [],
     secondary,
     bands,
     brief,

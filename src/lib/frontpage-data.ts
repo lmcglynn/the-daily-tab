@@ -23,18 +23,26 @@ export interface Snapshot {
   lastVisitAt: number | undefined;
   /** Cached by the background (lib/extras); shown only if they match current settings. */
   weather: WeatherReport | null;
-  market: MarketReport | null;
+  /** Quotes by symbol. */
+  markets: Record<string, MarketReport>;
 }
 
 /** Pull the storage.local values the front page uses, tolerating anything malformed. */
 export function localExtras(local: Record<string, unknown>) {
   const lastVisitAt = local.lastVisitAt;
   const weather = local.weather as WeatherReport | undefined;
-  const market = local.market as MarketReport | undefined;
+  const markets: Record<string, MarketReport> = {};
+  if (local.markets && typeof local.markets === 'object') {
+    for (const [symbol, q] of Object.entries(local.markets as Record<string, MarketReport>)) {
+      if (q && typeof q.price === 'number' && typeof q.previousClose === 'number') {
+        markets[symbol] = q;
+      }
+    }
+  }
   return {
     lastVisitAt: typeof lastVisitAt === 'number' ? lastVisitAt : undefined,
     weather: weather && typeof weather.temp === 'number' ? weather : null,
-    market: market && typeof market.price === 'number' ? market : null,
+    markets,
   };
 }
 

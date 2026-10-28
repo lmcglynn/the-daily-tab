@@ -138,13 +138,13 @@
     if (area === 'sync' && Object.keys(changes).some(isFeedKey)) {
       void getFeeds().then((feeds) => snap && (snap = { ...snap, feeds }));
     }
-    // Weather and the S&P 500 update in place (fixed-size boxes; nothing reflows).
-    if (area === 'local' && (changes.weather || changes.market)) {
-      const { weather, market } = localExtras({
+    // Weather and quotes update in place (fixed-size boxes; nothing reflows).
+    if (area === 'local' && (changes.weather || changes.markets)) {
+      const { weather, markets } = localExtras({
         weather: changes.weather ? changes.weather.newValue : snap.weather,
-        market: changes.market ? changes.market.newValue : snap.market,
+        markets: changes.markets ? changes.markets.newValue : snap.markets,
       });
-      snap = { ...snap, weather, market };
+      snap = { ...snap, weather, markets };
     }
   }
 

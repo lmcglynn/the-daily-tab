@@ -97,7 +97,7 @@
             story={view.lead}
             variant="lead"
             {onopen}
-            extras={view.leadColumn.length || view.market ? leadExtras : undefined}
+            extras={view.leadColumn.length || view.markets.length ? leadExtras : undefined}
           />
         </div>
       {/if}
@@ -113,7 +113,7 @@
             </ul>
           </section>
         {/if}
-        {#if view.market}<Ticker market={view.market} />{/if}
+        {#if view.markets.length}<Ticker markets={view.markets} />{/if}
       {/snippet}
 
       {#if view.secondary.length}

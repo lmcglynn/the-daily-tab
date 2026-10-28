@@ -86,9 +86,20 @@ export interface WeatherReport {
   low: number;
 }
 
-/** Latest S&P 500 quote, cached by the background in chrome.storage.local. */
+/** A ticker the reader follows (Yahoo symbol, e.g. ^GSPC, AAPL, BTC-USD). */
+export interface Ticker {
+  symbol: string;
+  /** Display name, e.g. "S&P 500" or "Apple Inc." */
+  name: string;
+}
+
+/** Latest quote for one ticker, cached by the background in chrome.storage.local. */
 export interface MarketReport {
   at: number;
+  symbol: string;
+  name: string;
+  /** "USD", "EUR"… (shown only in the spoken label). */
+  currency: string;
   price: number;
   previousClose: number;
   /** Exchange time of `price`. */
@@ -121,6 +132,6 @@ export interface Settings {
   /** Weather location for the right ear; null hides the weather. */
   weatherPlace: WeatherPlace | null;
   units: Units;
-  /** S&P 500 box under the lead story. */
-  showMarket: boolean;
+  /** Markets box under the lead story, in display order; empty hides it. */
+  tickers: Ticker[];
 }

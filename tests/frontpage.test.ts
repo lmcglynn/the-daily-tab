@@ -117,31 +117,75 @@ describe('buildFrontPage', () => {
     ).toBeNull();
   });
 
-  it('formats the S&P 500 box only when enabled', () => {
-    const market = {
+  describe('markets box', () => {
+    const spx = {
       at: fx.NOW,
+      symbol: '^GSPC',
+      name: 'S&P 500',
+      currency: 'USD',
       price: 7737.01,
       previousClose: 7722.6,
       marketTime: Date.parse('2026-10-27T13:40:00Z'), // 9:40 a.m. ET
       timezone: 'America/New_York',
       points: [7722, 7730, 7737],
     };
-    const off = { ...fx.settings, showMarket: false };
-    expect(buildFrontPage({ ...base, settings: off, market }).market).toBeNull();
-    const v = buildFrontPage({ ...base, settings: { ...fx.settings, showMarket: true }, market });
-    expect(v.market).toMatchObject({
-      price: '7,737.01',
-      change: '+14.41',
-      percent: '0.19%',
-      direction: 'up',
+    const aapl = { ...spx, symbol: 'AAPL', name: 'Apple Inc.', price: 340, previousClose: 343.1 };
+    const eur = {
+      ...spx,
+      symbol: 'EURUSD=X',
+      name: 'EUR/USD',
+      price: 1.1152,
+      previousClose: 1.1131,
+      timezone: 'Europe/London',
+    };
+    const tickers = (...symbols: string[]) =>
+      symbols.map((symbol) => ({
+        symbol,
+        name: { '^GSPC': 'S&P 500', AAPL: 'Apple', 'EURUSD=X': 'Euro' }[symbol]!,
+      }));
+    const markets = { '^GSPC': spx, AAPL: aapl, 'EURUSD=X': eur };
+
+    it('lists quotes in the reader’s order, skipping missing or stale ones', () => {
+      const settings = { ...fx.settings, tickers: tickers('AAPL', '^GSPC', 'EURUSD=X') };
+      const stale = { ...markets, 'EURUSD=X': { ...eur, at: fx.NOW - 5 * 86_400_000 } };
+      const v = buildFrontPage({ ...base, settings, markets: stale });
+      expect(v.markets.map((m) => m.symbol)).toEqual(['AAPL', '^GSPC']);
+      expect(
+        buildFrontPage({ ...base, settings: { ...fx.settings, tickers: [] }, markets }).markets,
+      ).toEqual([]);
     });
-    expect(v.market!.label).toMatch(/^S&P 500 7,737.01, up 14.41 points or 0.19 percent/);
-    const down = buildFrontPage({
-      ...base,
-      settings: { ...fx.settings, showMarket: true },
-      market: { ...market, price: 7700 },
-    }).market!;
-    expect(down).toMatchObject({ change: '−22.60', direction: 'down' });
+
+    it('formats an index', () => {
+      const v = buildFrontPage({
+        ...base,
+        settings: { ...fx.settings, tickers: tickers('^GSPC') },
+        markets,
+      });
+      expect(v.markets[0]).toMatchObject({
+        name: 'S&P 500',
+        showSymbol: false,
+        price: '7,737.01',
+        change: '+14.41',
+        percent: '0.19%',
+        direction: 'up',
+        asOf: 'As of 9:40 a.m. ET',
+      });
+      expect(v.markets[0]!.label).toMatch(/^S&P 500 7,737.01, up 14.41 points or 0.19 percent/);
+    });
+
+    it('formats a stock (reader’s name, symbol shown) and a currency (4 decimals)', () => {
+      const settings = { ...fx.settings, tickers: tickers('AAPL', 'EURUSD=X') };
+      const [stock, fx2] = buildFrontPage({ ...base, settings, markets }).markets;
+      expect(stock).toMatchObject({
+        name: 'Apple',
+        showSymbol: true,
+        change: '−3.10',
+        direction: 'down',
+      });
+      expect(stock!.label).toMatch(/^Apple 340.00 USD, down 3.10 or 0.90 percent/);
+      expect(fx2).toMatchObject({ price: '1.1152', change: '+0.0021' });
+      expect(fx2!.asOf).toMatch(/^As of \d+:\d\d [ap]\.m\. \S+$/);
+    });
   });
 
   it('builds the folio line and ears', () => {

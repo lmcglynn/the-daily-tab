@@ -2,7 +2,8 @@ import { browser } from 'wxt/browser';
 import { getDB } from '@/lib/db';
 import { publishEdition } from '@/lib/edition/publish';
 import { refreshFeeds, type RefreshReport } from '@/lib/engine/refresh';
-import { MARKET_KEY, WEATHER_KEY, refreshExtras } from '@/lib/extras/refresh';
+import { lookupTicker } from '@/lib/extras/market';
+import { MARKETS_KEY, WEATHER_KEY, refreshExtras } from '@/lib/extras/refresh';
 import { geocode } from '@/lib/extras/weather';
 import { discoverFeeds } from '@/lib/feed/discover';
 import type { Broadcast, Request } from '@/lib/messages';
@@ -14,6 +15,8 @@ const ALARM = 'refresh';
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(async ({ reason }) => {
     if (reason === 'install') await seed();
+    // The single-quote cache from before the tickers list.
+    if (reason === 'update') await browser.storage.local.remove('market');
     await ensureAlarm(true);
     void runRefresh(false);
   });
@@ -54,8 +57,8 @@ export default defineBackground(() => {
 });
 
 const extrasKey = (v: unknown) => {
-  const s = (v ?? {}) as { weatherPlace?: unknown; units?: unknown; showMarket?: unknown };
-  return JSON.stringify([s.weatherPlace ?? null, s.units ?? 'f', !!s.showMarket]);
+  const s = (v ?? {}) as { weatherPlace?: unknown; units?: unknown; tickers?: unknown };
+  return JSON.stringify([s.weatherPlace ?? null, s.units ?? 'f', s.tickers ?? []]);
 };
 
 async function runExtras(force: boolean): Promise<void> {
@@ -66,7 +69,7 @@ async function runExtras(force: boolean): Promise<void> {
       now: Date.now(),
       force,
       hasAccess: (origins) => browser.permissions.contains({ origins }),
-      read: () => browser.storage.local.get([WEATHER_KEY, MARKET_KEY]),
+      read: () => browser.storage.local.get([WEATHER_KEY, MARKETS_KEY]),
       write: (patch) => browser.storage.local.set(patch),
     });
   } catch (e) {
@@ -161,6 +164,12 @@ async function handle(msg: Request): Promise<unknown> {
     case 'geocode':
       try {
         return { places: await geocode((i, init) => fetch(i, init), msg.query) };
+      } catch (e) {
+        return { error: e instanceof Error ? e.message : String(e) };
+      }
+    case 'quote':
+      try {
+        return { ticker: await lookupTicker((i, init) => fetch(i, init), msg.symbol) };
       } catch (e) {
         return { error: e instanceof Error ? e.message : String(e) };
       }

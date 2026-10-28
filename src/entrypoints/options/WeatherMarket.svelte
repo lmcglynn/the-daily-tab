@@ -1,8 +1,10 @@
 <script lang="ts">
   import { browser } from 'wxt/browser';
-  import { MARKET_ORIGINS } from '@/lib/extras/market';
+  import { MAX_TICKERS, TICKER_SYMBOL } from '@/lib/defaults';
+  import { MARKET_ORIGINS, TICKER_PRESETS } from '@/lib/extras/market';
   import { WEATHER_ORIGINS } from '@/lib/extras/weather';
-  import type { Settings, Units, WeatherPlace } from '@/lib/types';
+  import { moveItem } from '@/lib/feeds-edit';
+  import type { Settings, Ticker, Units, WeatherPlace } from '@/lib/types';
 
   let {
     settings,
@@ -50,21 +52,57 @@
     void onpatch({ weatherPlace: { name: p.name, region: p.region, lat: p.lat, lon: p.lon } });
   }
 
-  function toggleMarket(e: Event) {
-    const box = e.currentTarget as HTMLInputElement;
+  let symbolInput = $state('');
+  let adding = $state(false);
+
+  // Plain copies: chrome.storage must not receive a reactive proxy.
+  const plainTickers = (): Ticker[] => settings.tickers.map((t) => ({ ...t }));
+
+  function addTyped(e: SubmitEvent) {
+    e.preventDefault();
+    addTicker(symbolInput);
+  }
+
+  /**
+   * Called inside the click: asks for Yahoo Finance access (once), then checks the symbol
+   * exists and fetches its name before adding it.
+   */
+  function addTicker(raw: string, preset?: Ticker) {
+    const symbol = raw.trim().toUpperCase();
     marketError = '';
-    if (!box.checked) {
-      void onpatch({ showMarket: false });
+    if (!TICKER_SYMBOL.test(symbol)) {
+      marketError = `“${raw.trim()}” doesn’t look like a ticker symbol.`;
       return;
     }
-    // Inside the click: ask for Yahoo Finance's chart endpoint only.
-    void browser.permissions.request({ origins: MARKET_ORIGINS }).then((granted) => {
-      if (granted) void onpatch({ showMarket: true });
-      else {
-        box.checked = false;
-        marketError = 'The S&P 500 box needs permission to reach Yahoo Finance.';
-      }
-    });
+    if (settings.tickers.some((t) => t.symbol === symbol)) {
+      marketError = `${symbol} is already in your list.`;
+      return;
+    }
+    adding = true;
+    browser.permissions
+      .request({ origins: MARKET_ORIGINS })
+      .then(async (granted) => {
+        if (!granted) {
+          marketError = 'Quotes need permission to reach Yahoo Finance.';
+          return;
+        }
+        const res = (await browser.runtime.sendMessage({ type: 'quote', symbol })) as
+          { ticker: Ticker | null } | { error: string };
+        if ('error' in res) {
+          marketError = `Couldn’t check ${symbol}: ${res.error}`;
+          return;
+        }
+        if (!res.ticker) {
+          marketError = `Yahoo Finance doesn’t know “${symbol}”. Check the symbol (indexes start with ^, e.g. ^DJI).`;
+          return;
+        }
+        const ticker = { symbol: res.ticker.symbol, name: preset?.name ?? res.ticker.name };
+        if (settings.tickers.some((t) => t.symbol === ticker.symbol)) return;
+        await onpatch({ tickers: [...plainTickers(), ticker] });
+        symbolInput = '';
+      })
+      .catch((err: unknown) => (marketError = err instanceof Error ? err.message : String(err)))
+      .finally(() => (adding = false));
   }
 
   const unitChoices: { value: Units; label: string }[] = [
@@ -121,14 +159,78 @@
 </fieldset>
 
 <h3>Markets</h3>
-<label class="choice">
-  <input type="checkbox" checked={settings.showMarket} onchange={toggleMarket} />
-  Show the S&amp;P 500 under the lead story
-</label>
 <p class="hint">
-  From Yahoo Finance’s public chart data: delayed, unofficial, and hidden automatically if it ever
-  stops answering.
+  Shown under the lead story; with more than one, use the arrows on the box to cycle through them.
+  Any Yahoo Finance symbol works: indexes (^GSPC), stocks (AAPL), funds (VOO), crypto (BTC-USD),
+  currencies (EURUSD=X). Quotes are delayed and unofficial, and a ticker that stops answering is
+  simply left out.
 </p>
+{#if settings.tickers.length}
+  <ul class="tickers" aria-label="Your tickers">
+    {#each settings.tickers as t, i (t.symbol)}
+      <li>
+        <span><strong>{t.name}</strong> <span class="sym">{t.symbol}</span></span>
+        <span class="tools">
+          <button
+            type="button"
+            class="icon"
+            disabled={i === 0}
+            aria-label="Move {t.name} up"
+            onclick={() => void onpatch({ tickers: moveItem(plainTickers(), i, i - 1) })}>↑</button
+          >
+          <button
+            type="button"
+            class="icon"
+            disabled={i === settings.tickers.length - 1}
+            aria-label="Move {t.name} down"
+            onclick={() => void onpatch({ tickers: moveItem(plainTickers(), i, i + 1) })}>↓</button
+          >
+          <button
+            type="button"
+            class="link"
+            aria-label="Remove {t.name}"
+            onclick={() =>
+              void onpatch({ tickers: plainTickers().filter((x) => x.symbol !== t.symbol) })}
+            >Remove</button
+          >
+        </span>
+      </li>
+    {/each}
+  </ul>
+{/if}
+{#if settings.tickers.length < MAX_TICKERS}
+  <form class="find" onsubmit={addTyped}>
+    <label class="field grow">
+      <span>Add a ticker</span>
+      <input
+        type="text"
+        maxlength="20"
+        spellcheck="false"
+        autocapitalize="characters"
+        placeholder="e.g. AAPL, ^DJI, BTC-USD"
+        bind:value={symbolInput}
+      />
+    </label>
+    <button type="submit" disabled={adding || !symbolInput.trim()}>
+      {adding ? 'Checking…' : 'Add'}
+    </button>
+  </form>
+  {@const presets = TICKER_PRESETS.filter(
+    (p) => !settings.tickers.some((t) => t.symbol === p.symbol),
+  )}
+  {#if presets.length}
+    <p class="presets">
+      <span>Quick add:</span>
+      {#each presets as p (p.symbol)}
+        <button type="button" class="chip" disabled={adding} onclick={() => addTicker(p.symbol, p)}
+          >{p.name}</button
+        >
+      {/each}
+    </p>
+  {/if}
+{:else}
+  <p class="hint">That’s the most the box holds ({MAX_TICKERS}); remove one to add another.</p>
+{/if}
 {#if marketError}<p class="error" role="alert">{marketError}</p>{/if}
 
 <style>
@@ -146,6 +248,45 @@
     gap: 10px;
     align-items: baseline;
     margin: 4px 0 10px;
+  }
+  .tickers {
+    list-style: none;
+    margin: 8px 0 12px;
+    padding: 0;
+    border-top: 1px solid var(--rule);
+  }
+  .tickers li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .sym {
+    font-size: 12.5px;
+    color: var(--ink-2);
+    margin-left: 4px;
+  }
+  .tools {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  .chip {
+    min-height: 26px;
+    padding: 2px 10px;
+    font-size: 13px;
+    border-radius: 13px;
   }
   .places {
     list-style: none;

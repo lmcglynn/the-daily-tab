@@ -1,4 +1,4 @@
-import type { PinnedLink, Settings, WeatherPlace } from './types';
+import type { PinnedLink, Settings, Ticker, WeatherPlace } from './types';
 
 export const DEFAULT_SPOT = '#A4161A';
 
@@ -13,7 +13,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sections: ['World', 'Tech', 'Science'],
   weatherPlace: null,
   units: 'f',
-  showMarket: false,
+  tickers: [],
 };
 
 function asPlace(v: unknown): WeatherPlace | null {
@@ -69,6 +69,30 @@ export function normalizeSettings(raw: unknown): Settings {
     sections: sections ?? d.sections,
     weatherPlace: asPlace(r.weatherPlace),
     units: r.units === 'c' ? 'c' : 'f',
-    showMarket: r.showMarket === true,
+    tickers: asTickers(r),
   };
+}
+
+/** Yahoo symbols: AAPL, ^GSPC, BRK-B, BTC-USD, EURUSD=X, 7203.T … */
+export const TICKER_SYMBOL = /^[\^A-Z0-9][A-Z0-9.\-=^]{0,19}$/;
+export const MAX_TICKERS = 8;
+export const SP500: Ticker = { symbol: '^GSPC', name: 'S&P 500' };
+
+function asTickers(r: Record<string, unknown>): Ticker[] {
+  const list = asArray(r.tickers);
+  if (!list) {
+    // Before the list existed there was a single S&P 500 switch.
+    return r.showMarket === true ? [SP500] : [];
+  }
+  const out: Ticker[] = [];
+  for (const t of list) {
+    if (!t || typeof t !== 'object') continue;
+    const symbol = String((t as Ticker).symbol ?? '')
+      .trim()
+      .toUpperCase();
+    if (!TICKER_SYMBOL.test(symbol) || out.some((o) => o.symbol === symbol)) continue;
+    const name = typeof (t as Ticker).name === 'string' ? (t as Ticker).name.trim() : '';
+    out.push({ symbol, name: name.slice(0, 60) || symbol });
+  }
+  return out.slice(0, MAX_TICKERS);
 }

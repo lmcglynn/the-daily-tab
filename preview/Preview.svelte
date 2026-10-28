@@ -27,7 +27,7 @@
     now: fx.NOW,
     online: state !== 'offline',
     weather: fx.weather,
-    market: fx.market,
+    markets: fx.markets,
   });
 
   const firstRun =

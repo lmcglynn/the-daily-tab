@@ -209,7 +209,7 @@ try {
     place?.name === 'Seattle' && Array.isArray((await sync()).settings.sections),
     `place saved (${place?.name}, ${place?.region}); sections still an array`,
   );
-  const local = () => page.eval(`chrome.storage.local.get(['weather', 'market'])`);
+  const local = () => page.eval(`chrome.storage.local.get(['weather', 'markets'])`);
   let w = null;
   for (let i = 0; i < 40 && !w; i++) {
     await sleep(250);
@@ -220,18 +220,46 @@ try {
     `weather fetched: ${w?.temp}°F, code ${w?.code}`,
   );
 
-  step('markets: tick the S&P 500 box (live Yahoo)');
+  step('markets: quick-add the S&P 500, type AAPL, reject a fake symbol (live Yahoo)');
+  const tickers = async () => (await sync()).settings.tickers.map((t) => t.symbol).join(',');
+  const until = async (fn, tries = 40) => {
+    for (let i = 0; i < tries; i++) {
+      const v = await fn();
+      if (v) return v;
+      await sleep(250);
+    }
+    return null;
+  };
   await gesture(
-    `[...document.querySelectorAll('label.choice')].find((l) => l.textContent.includes('S&P 500')).querySelector('input').click()`,
+    `[...document.querySelectorAll('.presets .chip')].find((b) => b.textContent.trim() === 'S&P 500').click()`,
   );
-  let m = null;
-  for (let i = 0; i < 40 && !m; i++) {
-    await sleep(250);
-    m = (await local()).market ?? null;
-  }
+  await until(async () => (await tickers()) === '^GSPC');
+  await setValue('form.find:last-of-type input', 'aapl', 'input');
+  await gesture(`[...document.querySelectorAll('form.find')].at(-1).requestSubmit()`);
+  await until(async () => (await tickers()).includes('AAPL'));
+  const saved = (await sync()).settings.tickers;
   check(
-    (await sync()).settings.showMarket === true && typeof m?.price === 'number',
-    `S&P 500 fetched: ${m?.price} (${m?.points?.length} points)`,
+    saved.map((t) => t.symbol).join() === '^GSPC,AAPL' && Array.isArray(saved),
+    `tickers saved: ${saved.map((t) => `${t.name} (${t.symbol})`).join(', ')}`,
+  );
+  await setValue('form.find:last-of-type input', 'NOTAREALTICKER', 'input');
+  await gesture(`[...document.querySelectorAll('form.find')].at(-1).requestSubmit()`);
+  const rejected = await until(() =>
+    page.eval(
+      `[...document.querySelectorAll('[role=alert]')].map((e) => e.textContent).find((t) => t.includes('NOTAREALTICKER')) ?? null`,
+    ),
+  );
+  check(!!rejected && (await tickers()) === '^GSPC,AAPL', `unknown symbol rejected: "${rejected}"`);
+  await page.eval(`document.querySelector('[aria-label="Move Apple Inc. up"]').click()`);
+  await until(async () => (await tickers()) === 'AAPL,^GSPC');
+  check((await tickers()) === 'AAPL,^GSPC', 'reordered: Apple first');
+  const m = await until(async () => {
+    const q = (await local()).markets;
+    return q?.AAPL && q['^GSPC'] ? q : null;
+  });
+  check(
+    typeof m?.AAPL?.price === 'number' && typeof m?.['^GSPC']?.price === 'number',
+    `quotes fetched: AAPL ${m?.AAPL?.price}, ^GSPC ${m?.['^GSPC']?.price}`,
   );
 
   step('units: switch to Celsius refetches');
@@ -243,7 +271,7 @@ try {
   }
   check(wc?.units === 'c', `weather refetched in °C: ${wc?.temp}°C`);
 
-  step('new tab shows the weather ear and the S&P 500 box');
+  step('new tab shows the weather ear and cycles the markets box');
   const tab = await browser.newPage();
   await tab.navigate(`chrome-extension://${extId}/newtab.html`);
   await sleep(1200);
@@ -251,17 +279,51 @@ try {
   const ear = await tab.eval(
     `[...document.querySelectorAll('.ear-right [aria-hidden=true]')].map((e) => e.innerText).join(' ').replace(/\\s+/g, ' ').trim()`,
   );
-  const tick = await tab.eval(
-    `document.querySelector('.ticker')?.innerText.replace(/\\s+/g, ' ').trim() ?? ''`,
-  );
+  // Visible quote text and the box height (cycling must not change it).
+  const box = () =>
+    tab.eval(`(() => {
+      const t = document.querySelector('.ticker');
+      if (!t) return null;
+      const quote = [...t.querySelectorAll('.quote [aria-hidden=true]')].map((e) => e.innerText).join(' ').replace(/\\s+/g, ' ').trim();
+      return { quote, pos: t.querySelector('.pos')?.textContent, h: t.getBoundingClientRect().height };
+    })()`);
   const folio = await tab.eval(`document.querySelector('.folio').innerText.replace(/\\s+/g, ' ')`);
   check(/^-?\d+° \S/.test(ear) && /H -?\d+° · L -?\d+°/.test(ear), `right ear: "${ear}"`);
-  check(
-    /^S&P 500 [\d,]+\.\d\d [▲▼■] [+−]/.test(tick) && /DELAYED/i.test(tick),
-    `ticker: "${tick}"`,
-  );
   check(!/NEW SINCE/i.test(ear), `"new since" is not in the ear (folio: "${folio}")`);
+  const shown1 = await box();
+  check(
+    /^APPLE INC\.\s+AAPL [\d,]+\.\d\d [▲▼■] [+−]/i.test(shown1?.quote ?? '') &&
+      shown1?.pos === '1 of 2',
+    `box starts on Apple: "${shown1?.quote}" [${shown1?.pos}]`,
+  );
+  await tab.eval(`document.querySelector('.ticker button[aria-label^="Next"]').click()`);
+  await sleep(150);
+  const shown2 = await box();
+  check(
+    /^S&P 500 [\d,]+\.\d\d [▲▼■] [+−]/.test(shown2?.quote ?? '') && shown2?.pos === '2 of 2',
+    `next arrow shows the S&P 500: "${shown2?.quote}" [${shown2?.pos}]`,
+  );
+  check(shown1?.h === shown2?.h, `box height unchanged while cycling (${shown1?.h}px)`);
+  await tab.eval(`(() => {
+    const t = document.querySelector('.ticker');
+    t.querySelector('button').focus();
+    t.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  })()`);
+  await sleep(150);
+  check((await box())?.pos === '1 of 2', '→ key on the box wraps back to Apple');
   tab.close();
+  // The choice is remembered for the next tab.
+  const tab2 = await browser.newPage();
+  await tab2.navigate(`chrome-extension://${extId}/newtab.html`);
+  await sleep(800);
+  await tab2.eval(`document.querySelector('.ticker button[aria-label^="Next"]').click()`);
+  tab2.close();
+  const tab3 = await browser.newPage();
+  await tab3.navigate(`chrome-extension://${extId}/newtab.html`);
+  await sleep(800);
+  const remembered = await tab3.eval(`document.querySelector('.ticker .pos')?.textContent`);
+  check(remembered === '2 of 2', `last-viewed ticker remembered in the next tab (${remembered})`);
+  tab3.close();
 
   step('OPML import preview');
   const docNode = await page.send('DOM.getDocument');

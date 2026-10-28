@@ -149,6 +149,34 @@ describe('normalizeSettings', () => {
     expect(s.sections).toEqual(['World', 'Tech']);
   });
 
+  it('migrates the old S&P 500 switch to a ticker list', () => {
+    expect(normalizeSettings({ showMarket: true }).tickers).toEqual([
+      { symbol: '^GSPC', name: 'S&P 500' },
+    ]);
+    expect(normalizeSettings({ showMarket: false }).tickers).toEqual([]);
+    expect(normalizeSettings({ showMarket: true, tickers: [] }).tickers).toEqual([]);
+  });
+
+  it('cleans the ticker list: upper-cases, de-duplicates, drops junk, caps at 8', () => {
+    const s = normalizeSettings({
+      tickers: [
+        { symbol: 'aapl', name: 'Apple' },
+        { symbol: 'AAPL', name: 'Dup' },
+        { symbol: 'not a symbol!', name: 'x' },
+        { symbol: 'BTC-USD' },
+        { symbol: 'EURUSD=X', name: 'EUR/USD' },
+        null,
+        ...Array.from({ length: 10 }, (_, i) => ({ symbol: `T${i}`, name: `T${i}` })),
+      ],
+    });
+    expect(s.tickers.slice(0, 3)).toEqual([
+      { symbol: 'AAPL', name: 'Apple' },
+      { symbol: 'BTC-USD', name: 'BTC-USD' },
+      { symbol: 'EURUSD=X', name: 'EUR/USD' },
+    ]);
+    expect(s.tickers).toHaveLength(8);
+  });
+
   it('fills defaults and drops invalid values', () => {
     const s = normalizeSettings({
       paperName: '  ',

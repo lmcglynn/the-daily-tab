@@ -1,5 +1,5 @@
 import { extrasOrigins, refreshExtras } from '@/lib/extras/refresh';
-import { MARKET_ORIGINS, parseChart } from '@/lib/extras/market';
+import { MARKET_ORIGINS, chartUrl, lookupTicker, parseChart } from '@/lib/extras/market';
 import {
   WEATHER_ORIGINS,
   describeWeather,
@@ -28,6 +28,8 @@ const chartJson = {
     result: [
       {
         meta: {
+          symbol: '^GSPC',
+          currency: 'USD',
           regularMarketPrice: 7737.01,
           chartPreviousClose: 7722.6,
           regularMarketTime: 1793204240,
@@ -90,26 +92,86 @@ describe('weather', () => {
   });
 });
 
+const chart = (symbol: string, price: number, previousClose: number, shortName = symbol) => ({
+  chart: {
+    result: [
+      {
+        meta: {
+          symbol,
+          shortName,
+          currency: 'USD',
+          regularMarketPrice: price,
+          chartPreviousClose: previousClose,
+          regularMarketTime: 1793204240,
+          exchangeTimezoneName: 'America/New_York',
+        },
+        indicators: { quote: [{ close: [previousClose, null, price] }] },
+      },
+    ],
+  },
+});
+const notFound = { chart: { result: null, error: { code: 'Not Found' } } };
+
 describe('market', () => {
-  it('parses the S&P 500 chart, dropping null points', () => {
+  it('parses a chart, dropping null points; the reader’s name wins', () => {
     expect(parseChart(chartJson, NOW)).toEqual({
       at: NOW,
+      symbol: '^GSPC',
+      name: 'S&P 500',
+      currency: 'USD',
       price: 7737.01,
       previousClose: 7722.6,
       marketTime: 1793204240_000,
       timezone: 'America/New_York',
       points: [7722.1, 7730.5, 7737.01],
     });
+    const named = parseChart(chart('AAPL', 340, 343.1, 'Apple Inc.'), NOW, {
+      symbol: 'AAPL',
+      name: 'Apple',
+    });
+    expect(named!.name).toBe('Apple');
   });
 
   it('returns null when the endpoint changes shape', () => {
-    expect(parseChart({ chart: { result: null, error: { code: 'Not Found' } } }, NOW)).toBeNull();
+    expect(parseChart(notFound, NOW)).toBeNull();
     expect(parseChart('<html>', NOW)).toBeNull();
+  });
+
+  it('builds per-symbol URLs, escaping ^ and =', () => {
+    expect(chartUrl('^GSPC')).toContain('/chart/%5EGSPC?');
+    expect(chartUrl('EURUSD=X')).toContain('/chart/EURUSD%3DX?');
+  });
+
+  it('looks up a ticker: canonical symbol and a newspaper name for indexes', async () => {
+    const respond = (body: unknown, status = 200) =>
+      (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
+    expect(
+      await lookupTicker(respond(chart('^DJI', 1, 1, 'Dow Jones Industrial Average')), '^dji'),
+    ).toEqual({
+      symbol: '^DJI',
+      name: 'Dow',
+    });
+    expect(await lookupTicker(respond(chart('AAPL', 1, 1, 'Apple Inc.')), 'AAPL')).toEqual({
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+    });
+    expect(await lookupTicker(respond(notFound, 404), 'NOPE')).toBeNull();
   });
 });
 
 describe('refreshExtras', () => {
-  const settings: Settings = { ...DEFAULT_SETTINGS, weatherPlace: seattle, showMarket: true };
+  const settings: Settings = {
+    ...DEFAULT_SETTINGS,
+    weatherPlace: seattle,
+    tickers: [
+      { symbol: '^GSPC', name: 'S&P 500' },
+      { symbol: 'AAPL', name: 'Apple' },
+    ],
+  };
+  const quotes: Record<string, unknown> = {
+    '%5EGSPC': chart('^GSPC', 7737.01, 7722.6),
+    AAPL: chart('AAPL', 340, 343.1),
+  };
 
   const run = async (over: Partial<Parameters<typeof refreshExtras>[0]> = {}) => {
     const calls: string[] = [];
@@ -118,9 +180,13 @@ describe('refreshExtras', () => {
       settings,
       now: NOW,
       fetch: (async (url: RequestInfo | URL) => {
-        calls.push(String(url));
-        const body = String(url).includes('open-meteo') ? forecastJson : chartJson;
-        return new Response(JSON.stringify(body));
+        const u = String(url);
+        calls.push(u);
+        if (u.includes('open-meteo')) return new Response(JSON.stringify(forecastJson));
+        const symbol = /\/chart\/([^?]+)/.exec(u)![1]!;
+        return quotes[symbol]
+          ? new Response(JSON.stringify(quotes[symbol]))
+          : new Response(JSON.stringify(notFound), { status: 404 });
       }) as typeof fetch,
       hasAccess: async () => true,
       read: async () => ({}),
@@ -130,35 +196,54 @@ describe('refreshExtras', () => {
     return { calls, written };
   };
 
-  it('fetches weather and the market and caches them', async () => {
+  it('fetches weather and every ticker, caching quotes by symbol', async () => {
     const { calls, written } = await run();
-    expect(calls).toHaveLength(2);
+    expect(calls).toHaveLength(3);
     expect(written.weather).toMatchObject({ temp: 47.6, units: 'f' });
-    expect(written.market).toMatchObject({ price: 7737.01 });
+    const markets = written.markets as Record<string, { price: number; name: string }>;
+    expect(Object.keys(markets).sort()).toEqual(['AAPL', '^GSPC']);
+    expect(markets.AAPL).toMatchObject({ price: 340, name: 'Apple' });
   });
 
-  it('skips fresh caches unless forced', async () => {
-    const cached = {
+  it('skips fresh caches unless forced, and drops unfollowed tickers', async () => {
+    const fresh = {
       weather: { ...parseForecast(forecastJson, seattle, 'f', NOW - 60_000)! },
-      market: { ...parseChart(chartJson, NOW - 60_000)! },
+      markets: {
+        '^GSPC': parseChart(quotes['%5EGSPC'], NOW - 60_000)!,
+        AAPL: parseChart(quotes.AAPL, NOW - 60_000)!,
+      },
     };
-    expect((await run({ read: async () => cached })).calls).toHaveLength(0);
-    expect((await run({ read: async () => cached, force: true })).calls).toHaveLength(2);
-    // A cache for other units (or another place) is refetched.
-    const otherUnits = { ...cached, weather: { ...cached.weather, units: 'c' as const } };
-    expect((await run({ read: async () => otherUnits })).calls).toHaveLength(1);
+    expect((await run({ read: async () => fresh })).calls).toHaveLength(0);
+    expect((await run({ read: async () => fresh, force: true })).calls).toHaveLength(3);
+    // A cache for other units is refetched; a quote for a removed ticker is dropped.
+    const withOld = {
+      ...fresh,
+      weather: { ...fresh.weather, units: 'c' as const },
+      markets: { ...fresh.markets, TSLA: parseChart(chart('TSLA', 1, 1), NOW - 60_000)! },
+    };
+    const { calls, written } = await run({ read: async () => withOld });
+    expect(calls).toHaveLength(1);
+    expect(Object.keys(written.markets as object).sort()).toEqual(['AAPL', '^GSPC']);
   });
 
-  it('does nothing without permission, and keeps going if a source fails', async () => {
-    expect((await run({ hasAccess: async () => false })).calls).toHaveLength(0);
+  it('keeps a ticker’s last good quote when its fetch fails', async () => {
+    const old = { '^GSPC': parseChart(quotes['%5EGSPC'], NOW - 3600_000)! };
     const { written } = await run({
+      read: async () => ({ markets: old }),
       fetch: (async (url: RequestInfo | URL) =>
-        String(url).includes('yahoo')
-          ? new Response('rate limited', { status: 429 })
-          : new Response(JSON.stringify(forecastJson))) as typeof fetch,
+        String(url).includes('AAPL')
+          ? new Response(JSON.stringify(quotes.AAPL))
+          : String(url).includes('yahoo')
+            ? new Response('rate limited', { status: 429 })
+            : new Response(JSON.stringify(forecastJson))) as typeof fetch,
     });
-    expect(written.weather).toBeDefined();
-    expect(written.market).toBeUndefined();
+    const markets = written.markets as Record<string, { at: number }>;
+    expect(markets['^GSPC']!.at).toBe(NOW - 3600_000);
+    expect(markets.AAPL!.at).toBe(NOW);
+  });
+
+  it('does nothing without permission', async () => {
+    expect((await run({ hasAccess: async () => false })).calls).toHaveLength(0);
   });
 
   it('lists the host access each extra needs (kept by permission clean-up)', () => {
