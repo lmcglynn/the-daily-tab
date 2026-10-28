@@ -1,0 +1,7 @@
+.output/
+.wxt/
+.preview-dist/
+node_modules/
+screenshots/
+fixtures/feeds/
+package-lock.json

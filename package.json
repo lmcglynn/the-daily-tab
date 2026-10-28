@@ -1,0 +1,52 @@
+{
+  "name": "daily-tab",
+  "description": "A new-tab news front page set like a printed broadsheet, fed by RSS and Atom.",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev:edge": "wxt -b edge",
+    "dev:chrome": "wxt -b chrome",
+    "build:edge": "wxt build -b edge",
+    "build:chrome": "wxt build -b chrome",
+    "zip:edge": "wxt zip -b edge",
+    "preview": "vite --config preview/vite.config.ts",
+    "preview:build": "vite build --config preview/vite.config.ts",
+    "screenshots": "npm run preview:build && node scripts/screenshots.mjs",
+    "size": "node scripts/size.mjs",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run lint && npm run typecheck && npm test",
+    "postinstall": "wxt prepare"
+  },
+  "dependencies": {
+    "@fontsource/libre-franklin": "^5.3.0",
+    "@fontsource/newsreader": "^5.3.0",
+    "@fontsource/playfair-display": "^5.3.0",
+    "@fontsource/unifrakturmaguntia": "^5.3.0",
+    "dexie": "^4.4.7",
+    "fast-xml-parser": "^5.11.2",
+    "svelte": "^5.57.3"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@wxt-dev/module-svelte": "^2.0.5",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-svelte": "^3.23.1",
+    "fake-indexeddb": "^6.2.6",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "prettier-plugin-svelte": "^4.1.1",
+    "svelte-check": "^4.7.7",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.1",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5",
+    "web-ext": "^10.8.0",
+    "wxt": "^0.21.5"
+  }
+}
