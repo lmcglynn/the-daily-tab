@@ -132,13 +132,12 @@
 
       <div class="bands">
         {#each view.bands as band (band.anchor)}
-          {@const photoAt = band.stories.findIndex((s) => s.imageUrl)}
           <section class="band" id={band.anchor} aria-labelledby="{band.anchor}-name">
             <h2 class="band-name" id="{band.anchor}-name">{band.category}</h2>
             <div class="band-stories" style:--n={Math.max(band.stories.length, 3)}>
               {#each band.stories as s, i (s.id)}
                 <div class="band-cell" class:ruled={i > 0}>
-                  <Story story={s} variant="band" photo={i === photoAt} {onopen} />
+                  <Story story={s} variant="band" {onopen} />
                 </div>
               {/each}
             </div>
