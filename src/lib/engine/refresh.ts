@@ -19,6 +19,8 @@ export interface RefreshDeps {
   hasAccess?: (url: string) => Promise<boolean>;
   concurrency?: number;
   timeoutMs?: number;
+  /** Waits before retrying a transient failure (see fetchFeed); [] disables retries. */
+  retryDelaysMs?: number[];
 }
 
 export interface RefreshReport {
@@ -85,6 +87,7 @@ export async function refreshFeeds(deps: RefreshDeps): Promise<RefreshReport> {
       fetch: deps.fetch,
       now,
       timeoutMs: deps.timeoutMs ?? FETCH_TIMEOUT_MS,
+      ...(deps.retryDelaysMs && { retryDelaysMs: deps.retryDelaysMs }),
     });
     const next: FeedState = { ...prev, lastFetchedAt: now };
 

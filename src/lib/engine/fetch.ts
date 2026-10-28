@@ -13,10 +13,14 @@ export type FetchOutcome =
   | { kind: 'not-modified' }
   | { kind: 'error'; error: string };
 
+export const RETRY_DELAYS_MS = [500, 1500];
+
 export interface FetchOptions {
   fetch: typeof fetch;
   now: number;
   timeoutMs?: number;
+  /** Waits before each retry of a transient failure; [] disables retries. */
+  retryDelaysMs?: number[];
 }
 
 /** Fetch with a hard timeout; the signal also aborts reading the body. */
@@ -64,7 +68,31 @@ export function decodeBody(buf: ArrayBuffer, contentType: string | null): string
   return new TextDecoder().decode(buf);
 }
 
+const UNREACHABLE = 'Could not be reached';
+/** Worth another try within the same refresh: dropped connections and gateway hiccups. */
+const isTransient = (error: string) => error === UNREACHABLE || /^HTTP 50[234]\b/.test(error);
+
+/**
+ * Fetch and parse one feed, retrying transient failures a couple of times. Some publishers
+ * (Nature) randomly bounce cookieless requests to a sign-in origin, which the browser reports
+ * as a network error; a second or third try usually gets the feed. Timeouts are not retried.
+ */
 export async function fetchFeed(
+  feed: Pick<Feed, 'id' | 'url'>,
+  state: Pick<FeedState, 'etag' | 'lastModified'>,
+  opts: FetchOptions,
+): Promise<FetchOutcome> {
+  const delays = opts.retryDelaysMs ?? RETRY_DELAYS_MS;
+  let outcome = await fetchOnce(feed, state, opts);
+  for (const delay of delays) {
+    if (outcome.kind !== 'error' || !isTransient(outcome.error)) break;
+    await new Promise((r) => setTimeout(r, delay));
+    outcome = await fetchOnce(feed, state, opts);
+  }
+  return outcome;
+}
+
+async function fetchOnce(
   feed: Pick<Feed, 'id' | 'url'>,
   state: Pick<FeedState, 'etag' | 'lastModified'>,
   opts: FetchOptions,
@@ -112,6 +140,6 @@ export async function fetchFeed(
 
 function describeError(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e);
-  if (/failed to fetch|networkerror|load failed/i.test(msg)) return 'Could not be reached';
+  if (/failed to fetch|networkerror|load failed/i.test(msg)) return UNREACHABLE;
   return msg.slice(0, 200);
 }

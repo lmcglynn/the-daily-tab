@@ -3,7 +3,7 @@
   import { browser } from 'wxt/browser';
   import { applyAppearance } from '@/lib/appearance';
   import type { DailyTabDB } from '@/lib/db';
-  import { DEFAULT_SETTINGS } from '@/lib/defaults';
+  import { normalizeSettings } from '@/lib/defaults';
   import {
     loadEditionItems,
     loadSnapshot,
@@ -18,7 +18,7 @@
   import type { Broadcast } from '@/lib/messages';
   import { originPatterns } from '@/lib/seed';
   import { getFeeds, isFeedKey, removeFeed, saveSettings, setLastVisitAt } from '@/lib/storage';
-  import type { Edition, Item, Settings } from '@/lib/types';
+  import type { Edition, Item } from '@/lib/types';
   import FrontPage from '@/ui/FrontPage.svelte';
   import { keyAction, step } from '@/ui/keys';
   import { buildFrontPage } from '@/ui/model';
@@ -130,7 +130,7 @@
   function onStorage(changes: Record<string, { newValue?: unknown }>, area: string) {
     if (!snap) return;
     if (area === 'sync' && changes.settings) {
-      const settings = { ...DEFAULT_SETTINGS, ...(changes.settings.newValue as Partial<Settings>) };
+      const settings = normalizeSettings(changes.settings.newValue);
       snap = { ...snap, settings };
       applyAppearance(settings);
     }

@@ -1,8 +1,8 @@
 import { browser } from 'wxt/browser';
-import { DEFAULT_SETTINGS } from './defaults';
+import { normalizeSettings } from './defaults';
 import type { Feed, Settings } from './types';
 
-export { DEFAULT_SETTINGS, DEFAULT_SPOT } from './defaults';
+export { DEFAULT_SETTINGS, DEFAULT_SPOT, normalizeSettings } from './defaults';
 
 const SETTINGS_KEY = 'settings';
 const FEED_PREFIX = 'feed:';
@@ -13,11 +13,15 @@ export const isFeedKey = (key: string) => key.startsWith(FEED_PREFIX);
 
 export async function getSettings(): Promise<Settings> {
   const got = await browser.storage.sync.get(SETTINGS_KEY);
-  return { ...DEFAULT_SETTINGS, ...(got[SETTINGS_KEY] as Partial<Settings> | undefined) };
+  return normalizeSettings(got[SETTINGS_KEY]);
 }
 
+/**
+ * Normalizing on write also turns any reactive Proxy in `patch` into plain arrays/objects;
+ * Chrome would otherwise store a proxied array as {"0": …}.
+ */
 export async function saveSettings(patch: Partial<Settings>): Promise<Settings> {
-  const next = { ...(await getSettings()), ...patch };
+  const next = normalizeSettings({ ...(await getSettings()), ...patch });
   await browser.storage.sync.set({ [SETTINGS_KEY]: next });
   return next;
 }

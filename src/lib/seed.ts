@@ -1,8 +1,11 @@
 import { feedIdFor } from './hash';
 import type { Feed } from './types';
 
-// Verified 2026-10-27: every URL returned a valid feed (BBC, NPR, Guardian, Ars, HN,
-// Quanta, ScienceDaily: RSS 2.0; The Verge: Atom; Nature: RSS 1.0).
+// Verified 2026-10-27 (BBC, NPR, Guardian, Ars, HN, Quanta, ScienceDaily: RSS 2.0; The Verge:
+// Atom). 2026-10-28: Nature (www.nature.com/nature.rss) replaced by Scientific American, from
+// the same publisher (Springer Nature). Nature bounces about half of cookieless requests to
+// idp.nature.com for sign-in, which an extension fetch cannot follow; its other feed URLs
+// redirect to the same place. Verify starter feeds from a browser context, not only curl.
 const STARTER: [category: string, title: string, url: string, siteUrl: string][] = [
   [
     'World',
@@ -32,7 +35,12 @@ const STARTER: [category: string, title: string, url: string, siteUrl: string][]
     'https://www.sciencedaily.com/rss/all.xml',
     'https://www.sciencedaily.com/',
   ],
-  ['Science', 'Nature', 'https://www.nature.com/nature.rss', 'https://www.nature.com/nature'],
+  [
+    'Science',
+    'Scientific American',
+    'https://www.scientificamerican.com/platform/syndication/rss/',
+    'https://www.scientificamerican.com/',
+  ],
 ];
 
 export const STARTER_SECTIONS = ['World', 'Tech', 'Science'];

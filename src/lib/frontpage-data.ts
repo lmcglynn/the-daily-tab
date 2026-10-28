@@ -1,7 +1,7 @@
 // Everything the new tab reads, all from local storage; no network on this path.
 import type { DailyTabDB } from './db';
 import { editionItemIds } from './edition/compose';
-import { DEFAULT_SETTINGS } from './defaults';
+import { normalizeSettings } from './defaults';
 import { getFeeds, getLastVisitAt, getSettings, isFeedKey } from './storage';
 import type { Edition, Feed, FeedState, Item, Settings } from './types';
 
@@ -35,7 +35,7 @@ export function snapshotFromPrefetch(raw: PrefetchRaw | null): Snapshot | null {
     items: new Map(raw.db.items.map((i) => [i.id, i])),
     feeds,
     states: raw.db.states,
-    settings: { ...DEFAULT_SETTINGS, ...(raw.sync.settings as Partial<Settings> | undefined) },
+    settings: normalizeSettings(raw.sync.settings),
     lastVisitAt: typeof lastVisitAt === 'number' ? lastVisitAt : undefined,
   };
 }

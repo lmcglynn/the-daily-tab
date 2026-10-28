@@ -1,4 +1,5 @@
 import { contrast } from '@/lib/color';
+import { DEFAULT_SETTINGS, normalizeSettings } from '@/lib/defaults';
 import {
   changedFeeds,
   feedsIn,
@@ -128,6 +129,46 @@ describe('OPML', () => {
       { url: list[1]!.url, title: 'R', siteUrl: list[1]!.siteUrl, category: 'Tech' },
       { url: list[0]!.url, title: 'Q & "A" <News>', siteUrl: list[0]!.siteUrl, category: 'World' },
     ]);
+  });
+});
+
+describe('normalizeSettings', () => {
+  it('repairs arrays stored as {"0": …} (a reactive Proxy passed to chrome.storage)', () => {
+    const s = normalizeSettings({
+      sections: { 0: 'World', 1: 'Tech', 2: 'Science' },
+      pinnedLinks: { 0: { title: 'Mail', url: 'https://outlook.live.com/' } },
+    });
+    expect(s.sections).toEqual(['World', 'Tech', 'Science']);
+    expect(s.pinnedLinks).toEqual([{ title: 'Mail', url: 'https://outlook.live.com/' }]);
+  });
+
+  it('turns a Proxy-wrapped array into a plain array', () => {
+    const proxied = new Proxy(['World', 'Tech'], {});
+    const s = normalizeSettings({ sections: proxied });
+    expect(Object.getPrototypeOf(s.sections)).toBe(Array.prototype);
+    expect(s.sections).toEqual(['World', 'Tech']);
+  });
+
+  it('fills defaults and drops invalid values', () => {
+    const s = normalizeSettings({
+      paperName: '  ',
+      refreshMinutes: 'soon',
+      theme: 'sepia',
+      photos: 'color',
+      spotColor: 'red',
+      sections: ['World', '', 'World', 7, 'Tech'],
+      pinnedLinks: [{ title: 'x' }, null],
+    });
+    expect(s).toMatchObject({
+      paperName: 'The Daily Tab',
+      refreshMinutes: 15,
+      theme: 'system',
+      photos: 'color',
+      spotColor: '#A4161A',
+      sections: ['World', 'Tech'],
+      pinnedLinks: [],
+    });
+    expect(normalizeSettings(undefined)).toEqual(DEFAULT_SETTINGS);
   });
 });
 

@@ -65,7 +65,11 @@ describe('fetchFeed', () => {
       await fetchFeed(
         f,
         {},
-        { fetch: mockFetch({ [f.url]: () => new Response('', { status: 503 }) }), now: NOW },
+        {
+          fetch: mockFetch({ [f.url]: () => new Response('', { status: 503 }) }),
+          now: NOW,
+          retryDelaysMs: [],
+        },
       ),
     ).toMatchObject({ kind: 'error', error: 'HTTP 503' });
     expect(
@@ -75,6 +79,39 @@ describe('fetchFeed', () => {
         { fetch: mockFetch({ [f.url]: '<html><body>hi</body></html>' }), now: NOW },
       ),
     ).toMatchObject({ kind: 'error', error: 'Not an RSS or Atom feed' });
+  });
+});
+
+describe('fetchFeed retries', () => {
+  const flaky = (failures: number) => {
+    let calls = 0;
+    const impl = (async () => {
+      calls++;
+      if (calls <= failures) throw new TypeError('Failed to fetch'); // e.g. a sign-in bounce
+      return new Response(fixture('rss2.xml'));
+    }) as unknown as typeof fetch;
+    return { impl, calls: () => calls };
+  };
+
+  it('retries transient network failures and succeeds', async () => {
+    const f = flaky(2);
+    const out = await fetchFeed(feed('a'), {}, { fetch: f.impl, now: NOW, retryDelaysMs: [1, 1] });
+    expect(out.kind).toBe('ok');
+    expect(f.calls()).toBe(3);
+  });
+
+  it('gives up after the last retry', async () => {
+    const f = flaky(5);
+    const out = await fetchFeed(feed('a'), {}, { fetch: f.impl, now: NOW, retryDelaysMs: [1, 1] });
+    expect(out).toEqual({ kind: 'error', error: 'Could not be reached' });
+    expect(f.calls()).toBe(3);
+  });
+
+  it('does not retry permanent errors', async () => {
+    const f = feed('a');
+    const fetchImpl = mockFetch({ [f.url]: () => new Response('', { status: 404 }) });
+    await fetchFeed(f, {}, { fetch: fetchImpl, now: NOW, retryDelaysMs: [1, 1] });
+    expect(fetchImpl.calls).toHaveLength(1);
   });
 });
 

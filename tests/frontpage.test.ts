@@ -101,7 +101,9 @@ describe('buildFrontPage', () => {
   });
 
   it('reports failed feeds as corrections', () => {
-    expect(buildFrontPage(base).corrections).toEqual(['Nature could not be reached at 9:42.']);
+    expect(buildFrontPage(base).corrections).toEqual([
+      'Scientific American could not be reached at 9:42.',
+    ]);
   });
 
   it('labels offline and first-run folios', () => {

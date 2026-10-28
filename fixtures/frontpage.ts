@@ -175,7 +175,7 @@ const RAW: Raw[] = [
     pic('coral', 80, 80), // tiny original
   ],
   [
-    'Nature',
+    'Scientific American',
     'Ancient genomes reveal early farming routes across the Mediterranean',
     at(6, 40),
     'Analysis of 300 individuals traces two separate waves of migration.',
@@ -194,7 +194,7 @@ const RAW: Raw[] = [
     pic('clock-tower'),
   ],
   [
-    'Nature',
+    'Scientific American',
     'Deep-sea microbes thrive on hydrogen split from water by natural radiation',
     at(4, 20),
     'The finding widens the search for life on icy moons.',
@@ -206,7 +206,7 @@ const RAW: Raw[] = [
     'Volunteers who slept four hours a night showed measurable changes.',
   ],
   [
-    'Nature',
+    'Scientific American',
     'Gravitational waves hint at a hidden population of intermediate black holes',
     '2100-01-01T00:00:00Z', // bogus future date → treated as fetch time
     'Three events fall in a mass range that models struggle to explain.',
@@ -272,7 +272,7 @@ export const settings: Settings = {
 export const lastVisitAt = at(8, 10);
 
 export const states: FeedState[] = feeds.map((f) =>
-  f.title === 'Nature'
+  f.title === 'Scientific American'
     ? {
         feedId: f.id,
         status: 'error',

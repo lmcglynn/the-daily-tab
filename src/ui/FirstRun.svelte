@@ -41,7 +41,8 @@
     <form
       onsubmit={(e) => {
         e.preventDefault();
-        onstart?.(chosen);
+        // A plain copy: chrome.storage would store the reactive proxy as {"0": …}.
+        onstart?.($state.snapshot(chosen));
       }}
     >
       <fieldset>
