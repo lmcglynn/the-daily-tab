@@ -4,7 +4,7 @@
 import { composeEdition } from '@/lib/edition/compose';
 import { groupStories } from '@/lib/edition/group';
 import { normalizeDate } from '@/lib/feed/normalize';
-import { starterFeeds } from '@/lib/seed';
+import { feedIdFor } from '@/lib/hash';
 import { DEFAULT_SETTINGS } from '@/lib/defaults';
 import type {
   Edition,
@@ -20,7 +20,32 @@ import type {
 export const NOW = new Date(2026, 9, 27, 9, 42).getTime();
 const at = (h: number, m = 0, dayOffset = 0) => new Date(2026, 9, 27 + dayOffset, h, m).getTime();
 
-export const feeds: Feed[] = starterFeeds();
+// The fixture's own feed list, independent of the starter feeds (the stories below name these).
+const SECTIONS = ['World', 'Tech', 'Science'];
+export const feeds: Feed[] = (
+  [
+    ['World', 'BBC News', 'https://feeds.bbci.co.uk/news/world/rss.xml'],
+    ['World', 'NPR', 'https://feeds.npr.org/1001/rss.xml'],
+    ['World', 'The Guardian', 'https://www.theguardian.com/world/rss'],
+    ['Tech', 'Ars Technica', 'https://feeds.arstechnica.com/arstechnica/index'],
+    ['Tech', 'The Verge', 'https://www.theverge.com/rss/index.xml'],
+    ['Tech', 'Hacker News', 'https://hnrss.org/frontpage'],
+    ['Science', 'Quanta', 'https://www.quantamagazine.org/feed/'],
+    ['Science', 'ScienceDaily', 'https://www.sciencedaily.com/rss/all.xml'],
+    [
+      'Science',
+      'Scientific American',
+      'https://www.scientificamerican.com/platform/syndication/rss/',
+    ],
+  ] as const
+).map(([category, title, url], order) => ({
+  id: feedIdFor(url),
+  url,
+  siteUrl: `${new URL(url).origin}/`,
+  title,
+  category,
+  order,
+}));
 const F = Object.fromEntries(feeds.map((f) => [f.title, f.id])) as Record<string, string>;
 
 const pic = (seed: string, w = 1200, h = 800) => `https://picsum.photos/seed/${seed}/${w}/${h}`;
@@ -268,6 +293,7 @@ export const items: Item[] = (() => {
 
 export const settings: Settings = {
   ...DEFAULT_SETTINGS,
+  sections: SECTIONS,
   installedAt: new Date(2026, 9, 1, 12, 0).getTime(), // → No. 27
   pinnedLinks: [
     { title: 'Mail', url: 'https://outlook.live.com/' },

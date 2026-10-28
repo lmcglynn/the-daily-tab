@@ -48,18 +48,23 @@ try {
     );
 
   step('initial render');
+  // Expectations come from what the extension seeded, so changing the starter list needs no edit.
+  const seeded = await sync();
+  const seededSections = seeded.settings.sections;
   const rows = await page.eval(`document.querySelectorAll('.feed').length`);
   const sectionNames = await page.eval(
     `[...document.querySelectorAll('.section-name')].map((i) => i.value)`,
   );
-  check(rows === 9, `lists ${rows} feeds`);
-  check(sectionNames.join() === 'World,Tech,Science', `sections ${sectionNames.join(', ')}`);
+  check(rows === feedsOf(seeded).length, `lists ${rows} feeds`);
+  check(sectionNames.join() === seededSections.join(), `sections ${sectionNames.join(', ')}`);
   await sleep(1500);
   const statuses = await page.eval(
     `[...document.querySelectorAll('.feed .status')].map((s) => s.textContent.trim())`,
   );
+  // Every starter origin is granted in the e2e build. Some sites refuse headless Edge, so
+  // "Failed …" is a fair status here; "Needs permission" is not.
   check(
-    statuses.every((s) => /^Updated|Not fetched/.test(s)),
+    statuses.length === rows && statuses.every((s) => /^(Updated|Not fetched|Failed)/.test(s)),
     `feed status lines (e.g. "${statuses[0]}")`,
   );
 
@@ -74,12 +79,13 @@ try {
   await page.eval(`document.querySelector('[aria-label="Move ${first.title} down"]').click()`);
   await sleep(400);
   let after = feedsOf(await sync());
-  check(after[1].id === first.id, `${first.title} moved down within World`);
-  await page.eval(`document.querySelector('[aria-label="Move World down"]').click()`);
+  check(after[1].id === first.id, `${first.title} moved down within ${first.category}`);
+  const [top, next, ...rest] = seededSections;
+  await page.eval(`document.querySelector('[aria-label="Move ${top} down"]').click()`);
   await sleep(400);
   check(
-    (await sync()).settings.sections.join() === 'Tech,World,Science',
-    'World section moved below Tech',
+    (await sync()).settings.sections.join() === [next, top, ...rest].join(),
+    `${top} section moved below ${next}`,
   );
 
   step('drag a feed into another section');

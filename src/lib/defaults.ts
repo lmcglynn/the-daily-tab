@@ -1,3 +1,4 @@
+import { STARTER_SECTIONS } from './seed';
 import type { PinnedLink, Settings, Ticker, WeatherPlace } from './types';
 
 export const DEFAULT_SPOT = '#A4161A';
@@ -10,7 +11,7 @@ export const DEFAULT_SETTINGS: Settings = {
   spotColor: DEFAULT_SPOT,
   pinnedLinks: [],
   installedAt: 0,
-  sections: ['World', 'Tech', 'Science'],
+  sections: STARTER_SECTIONS,
   weatherPlace: null,
   units: 'f',
   tickers: [],

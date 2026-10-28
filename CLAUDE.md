@@ -49,6 +49,9 @@ Verification against real Edge (headless, throwaway profile, driven over CDP by 
   `scripts/verify-newtab.mjs`. Find the worker with `findExtensionWorker()`, not by URL.
 - `LIVE=1 npx vitest run tests/live.test.ts --disableConsoleIntercept`: engine against the real
   starter feeds.
+- LA Times (HTTP 403) and Washington Post (no response) refuse headless Edge but work in a normal
+  Edge window and from Node, so expect them as failed feeds in the e2e checks. To test a
+  feed as a real reader would, launch with `launchEdge({ headless: false })`.
 
 Node is installed machine-wide (`C:\Program Files\nodejs`). In the Bash tool, prefix
 `export PATH="/c/Program Files/nodejs:$PATH"` if `node` is not found.
