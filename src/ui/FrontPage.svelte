@@ -103,8 +103,13 @@
       {/if}
 
       {#snippet leadExtras()}
+        {#if view.markets.length}<Ticker markets={view.markets} />{/if}
         {#if view.leadColumn.length}
-          <section class="lead-column" aria-labelledby="also-today">
+          <section
+            class="lead-column"
+            class:after-markets={view.markets.length > 0}
+            aria-labelledby="also-today"
+          >
             <h2 class="column-label" id="also-today">Also today</h2>
             <ul>
               {#each view.leadColumn as s (s.id)}
@@ -113,7 +118,6 @@
             </ul>
           </section>
         {/if}
-        {#if view.markets.length}<Ticker markets={view.markets} />{/if}
       {/snippet}
 
       {#if view.secondary.length}
@@ -313,6 +317,9 @@
   .lead-column {
     border-top: 1px solid var(--rule);
     padding-top: 10px;
+  }
+  .lead-column.after-markets {
+    margin-top: 16px;
   }
   .column-label {
     font: 700 10.5px/1.4 var(--font-label);

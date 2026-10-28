@@ -114,7 +114,7 @@
 
 <style>
   .ticker {
-    margin-top: 16px;
+    /* Spacing comes from the lead column around it (see FrontPage). */
     padding: 7px 0 8px;
     border-top: 2px solid var(--rule-ink);
     border-bottom: 1px solid var(--rule-ink);
