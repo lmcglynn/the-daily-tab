@@ -38,6 +38,12 @@ Verification against real Edge (headless, throwaway profile, driven over CDP by 
 - `npm run verify:background`: builds `--mode e2e` (→ `.output/edge-mv3-e2e`, the only build with
   starter origins pre-granted as `host_permissions`, because headless Edge cannot answer a
   permission prompt) and checks the worker refreshes and composes with no tab open.
+- `npm run verify:newtab`: e2e build; time to first headlines (median of 5 tabs, with phase
+  marks `dt:script` / `dt:data` / `first-headlines`), new-edition button without reflow, read
+  state, "More in …", offline folio, corrections.
+- Scripts that probe IndexedDB from CDP must never `indexedDB.open('daily-tab')` before the
+  extension has created it (it blocks Dexie's upgrade); use the `idb()` helper in
+  `scripts/verify-newtab.mjs`. Find the worker with `findExtensionWorker()`, not by URL.
 - `LIVE=1 npx vitest run tests/live.test.ts --disableConsoleIntercept`: engine against the real
   starter feeds.
 

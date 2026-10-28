@@ -47,16 +47,22 @@ fonts < 300 KB total · 50-feed refresh < 30 s.
 - [x] States: first run, offline, read, new-since-last-visit
 - [x] Dev preview page with fixtures (long headlines, missing photos, odd dates, 3-feed repeat)
 - [x] Contrast test (≥ 4.5:1, both editions, worst-case grain)
-- [ ] **STOP: screenshots of day + night at 1440, 1024, 390** (`npm run screenshots`), awaiting review
+- [x] **STOP: screenshots of day + night at 1440, 1024, 390** (`npm run screenshots`), reviewed
 
 ## 3. Live data
 
-- [ ] Render latest edition from IndexedDB, no network on the critical path
-- [ ] "New edition · N stories" button on `edition-updated`
-- [ ] Read state (mark on open), muted headline
-- [ ] "New since last visit" dots + ear count; update lastVisitAt
-- [ ] Refresh action; corrections box from FeedState; offline folio
-- [ ] Measure: first headlines < 100 ms
+- [x] Render latest edition from IndexedDB, no network on the critical path
+- [x] "New edition · N stories" button on `edition-updated`
+- [x] Read state (mark on open), muted headline
+- [x] "New since last visit" dots + ear count; update lastVisitAt (recorded when the page is left)
+- [x] Refresh action (folio "Updated 9:42" is the button); corrections box from FeedState; offline folio
+- [x] "More in …" expands a band with the next stories from that section
+- [x] First run: chooser requests host permissions inside the click, then prints the first edition
+- [x] Measure: first headlines < 100 ms (`npm run verify:newtab`: ~60 ms warm; first tab after
+      browser start ~120 ms; see Milestone 5)
+- [x] Real-feed fixes: one story per feed first in bands; standfirst paragraphs become decks;
+      photo-only leads get a wider photo; WordPress originals resized to 1200 px; journal DOI
+      boilerplate stripped
 
 ## 4. Settings page
 
@@ -73,4 +79,6 @@ fonts < 300 KB total · 50-feed refresh < 30 s.
 - [ ] Accessibility pass: contrast ≥ 4.5:1 both editions, landmarks, labels
 - [ ] First-run flow ("Choose your sections")
 - [ ] Font loading (preload, `font-display`)
-- [ ] Performance budget check (`npm run size`, timing)
+- [ ] Performance budget check (`npm run size`, timing). Cold first tab is ~120 ms: most of it
+      is parsing ~55 KB gz JS before data is requested. Options: start the IndexedDB/storage
+      reads in a tiny pre-module, or read the three critical-path stores without Dexie.

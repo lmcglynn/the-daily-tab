@@ -1,0 +1,108 @@
+// Everything the new tab reads, all from local storage; no network on this path.
+import type { DailyTabDB } from './db';
+import { editionItemIds } from './edition/compose';
+import { getFeeds, getLastVisitAt, getSettings } from './storage';
+import type { Edition, Feed, FeedState, Item, Settings } from './types';
+
+export interface Snapshot {
+  edition: Edition | null;
+  items: Map<string, Item>;
+  feeds: Feed[];
+  states: FeedState[];
+  settings: Settings;
+  /** The previous visit, used for "new since"; this visit is recorded when the page is left. */
+  lastVisitAt: number | undefined;
+}
+
+export async function loadSnapshot(db: DailyTabDB): Promise<Snapshot> {
+  const editionP = db.latestEdition();
+  const itemsP = editionP.then((e) => (e ? loadEditionItems(db, e) : new Map<string, Item>()));
+  const [edition, items, feeds, states, settings, lastVisitAt] = await Promise.all([
+    editionP,
+    itemsP,
+    getFeeds(),
+    db.feedState.toArray(),
+    getSettings(),
+    getLastVisitAt(),
+  ]);
+  return { edition: edition ?? null, items, feeds, states, settings, lastVisitAt };
+}
+
+export async function loadEditionItems(
+  db: DailyTabDB,
+  edition: Edition,
+): Promise<Map<string, Item>> {
+  const ids = editionItemIds(edition);
+  const found = await db.items.bulkGet(ids);
+  const map = new Map<string, Item>();
+  for (const item of found) if (item) map.set(item.id, item);
+  return map;
+}
+
+/** Stories in `next` that the reader hasn't been shown in `current`. */
+export function newStoryCount(current: Edition | null, next: Edition): number {
+  const shown = new Set(current ? editionItemIds(current) : []);
+  const placed = [
+    next.leadItemId,
+    ...next.secondaryItemIds,
+    ...next.sections.flatMap((s) => s.itemIds),
+    ...next.briefItemIds,
+  ];
+  return placed.filter((id) => !shown.has(id)).length;
+}
+
+/**
+ * The next newest stories in a section that aren't already on the page. `exclude` holds the
+ * item ids and story ids already shown, so other feeds' versions of a story are skipped too.
+ */
+export async function moreInSection(
+  db: DailyTabDB,
+  feeds: Feed[],
+  category: string,
+  exclude: Set<string>,
+  limit = 6,
+): Promise<Item[]> {
+  const feedIds = feeds.filter((f) => f.category === category).map((f) => f.id);
+  if (feedIds.length === 0) return [];
+  const items = await db.items.where('feedId').anyOf(feedIds).toArray();
+  const seenStories = new Set<string>();
+  return items
+    .filter((i) => !exclude.has(i.id) && !(i.storyId && exclude.has(i.storyId)))
+    .sort((a, b) => b.publishedAt - a.publishedAt)
+    .filter((i) => {
+      const key = i.storyId ?? i.id;
+      if (seenStories.has(key)) return false;
+      seenStories.add(key);
+      return true;
+    })
+    .slice(0, limit);
+}
+
+// Copy-on-write helpers: the page holds these maps as immutable state and swaps them whole.
+
+export function withItems(items: Map<string, Item>, add: Item[]): Map<string, Item> {
+  const next = new Map(items);
+  for (const item of add) next.set(item.id, item);
+  return next;
+}
+
+export function withEntry<V>(map: Map<string, V>, key: string, value: V | null): Map<string, V> {
+  const next = new Map(map);
+  if (value === null) next.delete(key);
+  else next.set(key, value);
+  return next;
+}
+
+/** Item ids and story ids currently on the page. */
+export function shownKeys(items: Map<string, Item>): Set<string> {
+  const keys = new Set<string>();
+  for (const item of items.values()) {
+    keys.add(item.id);
+    if (item.storyId) keys.add(item.storyId);
+  }
+  return keys;
+}
+
+export async function markRead(db: DailyTabDB, id: string, now: number): Promise<void> {
+  await db.items.update(id, { readAt: now });
+}

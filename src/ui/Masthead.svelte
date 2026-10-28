@@ -2,7 +2,11 @@
   import { SvelteSet } from 'svelte/reactivity';
   import type { FrontPageView } from './model';
 
-  let { view }: { view: FrontPageView } = $props();
+  let {
+    view,
+    refreshing = false,
+    onrefresh,
+  }: { view: FrontPageView; refreshing?: boolean; onrefresh?: () => void } = $props();
 
   const brokenIcons = new SvelteSet<string>();
   const host = (url: string) => {
@@ -47,7 +51,15 @@
     ><span class="sep" aria-hidden="true">·</span><span>No. {view.issue}</span><span
       class="sep"
       aria-hidden="true">·</span
-    ><span class:offline={view.offline}>{view.updatedLabel}</span>
+    >{#if onrefresh}<button
+        type="button"
+        class="refresh"
+        onclick={onrefresh}
+        disabled={refreshing}
+        title="Fetch the latest stories now"
+        aria-label={refreshing ? 'Updating' : `${view.updatedLabel}. Refresh now`}
+        >{refreshing ? 'Updating…' : view.updatedLabel}</button
+      >{:else}<span>{view.updatedLabel}</span>{/if}
   </p>
 
   {#if view.sections.length || view.pinned.length}
@@ -161,6 +173,19 @@
     color: var(--ink);
   }
   .sep {
+    color: var(--ink-2);
+  }
+  .refresh {
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+  }
+  .refresh:hover:not(:disabled) {
+    text-decoration: underline;
+    text-underline-offset: 0.25em;
+  }
+  .refresh:disabled {
+    cursor: progress;
     color: var(--ink-2);
   }
 

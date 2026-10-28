@@ -50,6 +50,15 @@ describe('format', () => {
     );
     expect(splitDeck('One sentence only.')).toEqual({ deck: 'One sentence only.', body: '' });
   });
+
+  it('prefers a first paragraph (standfirst) as the deck', () => {
+    expect(
+      splitDeck('Royal tour comes as poll suggests support\nKing Charles has confirmed.\nMore.'),
+    ).toEqual({
+      deck: 'Royal tour comes as poll suggests support',
+      body: 'King Charles has confirmed. More.',
+    });
+  });
 });
 
 describe('buildFrontPage', () => {

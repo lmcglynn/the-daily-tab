@@ -1,18 +1,12 @@
 // Loads .output/edge-mv3 into a throwaway headless Edge profile, opens a new tab and prints
 // what it shows. Usage: node scripts/smoke-edge.mjs
-import { launchEdge, waitForTarget, sleep } from './edge.mjs';
+import { findExtensionWorker, launchEdge, sleep } from './edge.mjs';
 
 const browser = await launchEdge({ extensionDir: '.output/edge-mv3' });
 try {
-  const sw = await waitForTarget(
-    browser,
-    (t) =>
-      t.type === 'service_worker' &&
-      t.url.startsWith('chrome-extension://') &&
-      t.url.endsWith('/background.js'),
-  );
-  const extId = new URL(sw.url).host;
-  console.log(`service worker: ${sw.url}`);
+  const { target, session, extId } = await findExtensionWorker(browser);
+  session.close();
+  console.log(`service worker: ${target.url}`);
 
   const page = await browser.newPage('edge://newtab/');
   await sleep(1500);

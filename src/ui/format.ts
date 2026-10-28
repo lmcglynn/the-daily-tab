@@ -55,14 +55,22 @@ export function ago(t: number, now: number): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+const flat = (s: string) => s.replace(/\s*\n\s*/g, ' ').trim();
+
 /**
- * Split a summary into a deck (first sentence) and the remaining body. Sentences must be a
- * reasonable length so "U.S." or "Dr." don't end the deck.
+ * Split a summary into a deck and the remaining body. A first paragraph (a standfirst) of
+ * reasonable length is the deck; otherwise the first sentence, which must be long enough that
+ * "U.S." or "Dr." don't end it.
  */
 export function splitDeck(summary: string): { deck: string; body: string } {
-  const m = /^(.{40,240}?[.!?…][”’"')]?)\s+(?=[A-Z“‘"'(0-9])/.exec(summary);
-  if (m) return { deck: m[1]!.trim(), body: summary.slice(m[0].length).trim() };
-  return { deck: summary, body: '' };
+  const nl = summary.indexOf('\n');
+  if (nl >= 20 && nl <= 300) {
+    return { deck: summary.slice(0, nl).trim(), body: flat(summary.slice(nl + 1)) };
+  }
+  const text = flat(summary);
+  const m = /^(.{40,240}?[.!?…][”’"')]?)\s+(?=[A-Z“‘"'(0-9])/.exec(text);
+  if (m) return { deck: m[1]!.trim(), body: text.slice(m[0].length).trim() };
+  return { deck: text, body: '' };
 }
 
 export function shorten(text: string, max: number): string {

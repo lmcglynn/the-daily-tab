@@ -7,6 +7,24 @@ export const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 /** Clock skew we tolerate before treating a date as bogus "future" news. */
 const FUTURE_SLACK_MS = 10 * 60 * 1000;
 
+/**
+ * WordPress image CDNs (Photon, VIP) serve originals that can be 7000+ px and over a megabyte;
+ * they honour `w=`, and plain WordPress ignores it. 1200 px covers the lead at 2x.
+ */
+export function sizedImage(url: string): string {
+  try {
+    const u = new URL(url);
+    if (!u.pathname.includes('/wp-content/uploads/')) return url;
+    if (u.searchParams.has('w') || u.searchParams.has('resize') || u.searchParams.has('fit')) {
+      return url;
+    }
+    u.searchParams.set('w', '1200');
+    return u.href;
+  } catch {
+    return url;
+  }
+}
+
 /** Parse a feed date. Missing, unparsable or future dates fall back to `fetchedAt`. */
 export function normalizeDate(raw: string | undefined, fetchedAt: number): number {
   if (!raw) return fetchedAt;
@@ -58,7 +76,7 @@ export function normalizeEntries(
       publishedAt,
       fetchedAt,
     };
-    if (imageUrl) item.imageUrl = imageUrl;
+    if (imageUrl) item.imageUrl = sizedImage(imageUrl);
     const author = e.author ? truncate(htmlToText(e.author), 80) : '';
     if (author) item.author = author;
     items.push(item);

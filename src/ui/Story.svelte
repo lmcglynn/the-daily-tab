@@ -13,27 +13,29 @@
     variant: Variant;
     /** Secondary and band stories show a photo only where the layout wants one. */
     photo?: boolean;
-    onopen?: (id: string) => void;
+    /** Called for left, middle and modified clicks on the headline. */
+    onopen?: (id: string, e: MouseEvent) => void;
   } = $props();
 
   const headingId = $derived(`h-${story.id}`);
   const showPhoto = $derived(photo && !!story.imageUrl);
   // Band stories sit under their section name, so the kicker names the source instead.
   const kicker = $derived(variant === 'band' ? story.source : story.kicker);
-  const open = () => onopen?.(story.id);
+  const open = (e: MouseEvent) => onopen?.(story.id, e);
 </script>
 
 <article
   class="story {variant}"
   class:read={story.read}
   class:has-photo={showPhoto}
+  class:no-body={variant === 'lead' && !story.body}
   aria-labelledby={headingId}
   data-story={story.id}
 >
   {#if variant === 'brief'}
     <h3 id={headingId} class="headline">
       {#if story.isNew}<span class="dot" title="New since your last visit"></span>{/if}
-      <a href={story.link} onclick={open}>{story.title}</a>
+      <a href={story.link} onclick={open} onauxclick={open}>{story.title}</a>
     </h3>
     <p class="byline">
       {story.source} · <time datetime={story.datetime}>{story.ago}</time>
@@ -45,9 +47,13 @@
       </p>
     {/if}
     {#if variant === 'lead'}
-      <h2 id={headingId} class="headline"><a href={story.link} onclick={open}>{story.title}</a></h2>
+      <h2 id={headingId} class="headline">
+        <a href={story.link} onclick={open} onauxclick={open}>{story.title}</a>
+      </h2>
     {:else}
-      <h3 id={headingId} class="headline"><a href={story.link} onclick={open}>{story.title}</a></h3>
+      <h3 id={headingId} class="headline">
+        <a href={story.link} onclick={open} onauxclick={open}>{story.title}</a>
+      </h3>
     {/if}
     {#if story.deck}<p class="deck">{story.deck}</p>{/if}
 
@@ -199,6 +205,15 @@
   }
   .lead:not(.has-photo) .lead-text::before {
     display: none;
+  }
+  /* A one-line summary leaves nothing for the text columns: give the photo the room. */
+  @media (min-width: 1280px) {
+    .lead.has-photo.no-body .lead-photo {
+      grid-column: 1 / span 3;
+    }
+    .lead.has-photo.no-body .lead-text {
+      grid-column: 4;
+    }
   }
   .lead .byline {
     padding-bottom: 10px;

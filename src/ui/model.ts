@@ -38,6 +38,8 @@ export interface BandView {
   category: string;
   anchor: string;
   stories: StoryView[];
+  /** Expanded "More in …" list, or null while collapsed. */
+  more: StoryView[] | null;
 }
 
 export interface FrontPageView {
@@ -70,6 +72,8 @@ export interface FrontPageInput {
   lastVisitAt: number | undefined;
   now: number;
   online: boolean;
+  /** Extra items per section, shown when the reader follows "More in …". */
+  more?: Map<string, string[]>;
 }
 
 export function buildFrontPage(input: FrontPageInput): FrontPageView {
@@ -111,7 +115,7 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
       // summary from the same story elsewhere.
       if (!lead.body) {
         const fuller = edition.leadRelatedItemIds
-          .map((id) => items.get(id)?.summary ?? '')
+          .map((id) => (items.get(id)?.summary ?? '').replace(/\s*\n\s*/g, ' '))
           .sort((a, b) => b.length - a.length)[0];
         if (fuller && fuller !== lead.deck) lead.body = fuller;
       }
@@ -123,6 +127,7 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
     category: s.category,
     anchor: anchorFor(s.category),
     stories: stories(s.itemIds, 150),
+    more: input.more?.has(s.category) ? stories(input.more.get(s.category)!, 0) : null,
   }));
   const brief = edition ? stories(edition.briefItemIds, 0) : [];
 
@@ -151,7 +156,7 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
     secondary,
     bands,
     brief,
-    corrections: corrections(input.states, feedById),
+    corrections: edition ? corrections(input.states, feedById) : [],
   };
 }
 
@@ -159,7 +164,12 @@ function corrections(states: FeedState[], feedById: Map<string, Feed>): string[]
   const out: string[] = [];
   for (const s of states) {
     const feed = feedById.get(s.feedId);
-    if (!feed || s.status !== 'error') continue;
+    if (!feed) continue;
+    if (s.status === 'no-permission') {
+      out.push(`${feed.title} is waiting for permission to be read; allow it in Settings.`);
+      continue;
+    }
+    if (s.status !== 'error') continue;
     const at = s.lastErrorAt ? ` at ${clock(s.lastErrorAt)}` : '';
     const err = s.lastError ?? '';
     if (/^HTTP \d/.test(err)) out.push(`${feed.title} answered with an error (${err})${at}.`);

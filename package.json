@@ -17,6 +17,7 @@
     "build:e2e": "wxt build -b edge --mode e2e",
     "verify:edge": "npm run build:edge && node scripts/smoke-edge.mjs",
     "verify:background": "npm run build:e2e && node scripts/verify-background.mjs",
+    "verify:newtab": "npm run build:e2e && node scripts/verify-newtab.mjs",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "typecheck": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",

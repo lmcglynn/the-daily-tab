@@ -200,6 +200,19 @@ describe('composeEdition', () => {
     expect(editionItemIds(e)).toContain('g1');
   });
 
+  it('gives each feed a story in its band before a prolific feed takes more', () => {
+    const items = [
+      ...Array.from({ length: 8 }, (_, i) =>
+        item({ id: `v${i}`, feedId: ids.verge!, publishedAt: NOW - i * 60_000 }),
+      ),
+      item({ id: 'ars-old', feedId: ids.ars!, publishedAt: NOW - 3 * HOUR }),
+    ];
+    const e = composeEdition({ items, feeds, sections: ['Tech'], now: NOW, previousNumber: 0 })!;
+    const band = e.sections.find((s) => s.category === 'Tech')!;
+    expect(band.itemIds).toContain('ars-old');
+    expect(band.itemIds.at(-1)).toBe('ars-old'); // still shown newest first
+  });
+
   it('returns null when there is nothing to print', () => {
     expect(composeEdition({ items: [], feeds, sections, now: NOW, previousNumber: 0 })).toBeNull();
   });

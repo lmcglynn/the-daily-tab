@@ -71,10 +71,24 @@ describe('summarize', () => {
     ).toBeLessThanOrEqual(300);
   });
 
+  it('keeps paragraph breaks as plain newlines, ignoring source formatting whitespace', () => {
+    const html = '<p>Standfirst without a full stop</p>\n\n<p>Body  text\n continues.</p>';
+    expect(summarize(html, 'T')).toBe('Standfirst without a full stop\nBody text continues.');
+    expect(htmlToText(html)).toBe('Standfirst without a full stop Body text continues.');
+  });
+
   it('removes Hacker News boilerplate', () => {
     const html =
       '<p>Article URL: <a href="https://x">https://x</a></p><p>Comments URL: <a>https://y</a></p><p>Points: 3</p><p># Comments: 0</p>';
     expect(summarize(html, 'Title')).toBe('');
+  });
+
+  it('removes journal "Published online; doi" boilerplate', () => {
+    const html =
+      '<p>Nature, Published online: 27 October 2026; <a href="https://doi.org/x">doi:10.1038/s41586-026-11302-z</a></p>A chemical defence against phage infection';
+    expect(summarize(html, 'Author Correction: A chemical defence against phage infection')).toBe(
+      'A chemical defence against phage infection',
+    );
   });
 
   it('returns empty when the summary repeats the title', () => {

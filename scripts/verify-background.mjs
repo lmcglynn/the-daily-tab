@@ -2,16 +2,11 @@
 // feeds and composes an edition, on install and again on the refresh alarm.
 // Uses the e2e build (starter origins pre-granted; headless Edge can't answer the prompt).
 // Usage: npm run verify:background
-import { launchEdge, waitForTarget, sleep } from './edge.mjs';
+import { findExtensionWorker, launchEdge, sleep } from './edge.mjs';
 
 const browser = await launchEdge({ extensionDir: '.output/edge-mv3-e2e' });
 try {
-  const swTarget = await waitForTarget(
-    browser,
-    (t) => t.type === 'service_worker' && t.url.endsWith('/background.js'),
-  );
-  const extId = new URL(swTarget.url).host;
-  const sw = await browser.attach(swTarget);
+  const { session: sw, extId } = await findExtensionWorker(browser);
 
   const dbSummary = () =>
     sw.eval(`new Promise((resolve, reject) => {

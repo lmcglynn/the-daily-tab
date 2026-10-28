@@ -9,29 +9,33 @@
     firstRun = null,
     newEdition = null,
     fresh = false,
+    refreshing = false,
     onopen,
     onmore,
     onshownew,
     onstart,
+    onrefresh,
   }: {
     view: FrontPageView;
     /** Present until the first edition exists. */
-    firstRun?: { sections: SectionChoice[]; busy: boolean } | null;
+    firstRun?: { sections: SectionChoice[]; busy: boolean; error?: string } | null;
     /** A newer edition is waiting; shown as a button, never reflowed in. */
     newEdition?: { count: number } | null;
     /** Fade the page in (opening a new edition). */
     fresh?: boolean;
-    onopen?: (id: string) => void;
+    refreshing?: boolean;
+    onopen?: (id: string, e: MouseEvent) => void;
     onmore?: (category: string) => void;
     onshownew?: () => void;
     onstart?: (sections: string[]) => void;
+    onrefresh?: () => void;
   } = $props();
 
   const widths = [96, 88, 92, 70, 84, 40];
 </script>
 
 <div class="page" class:fresh>
-  <Masthead {view} />
+  <Masthead {view} {refreshing} onrefresh={firstRun ? undefined : onrefresh} />
 
   {#if newEdition}
     <button class="new-edition" type="button" onclick={() => onshownew?.()}>
@@ -43,7 +47,12 @@
   {#if firstRun}
     <main class="grid">
       <div class="slot-lead">
-        <FirstRun sections={firstRun.sections} busy={firstRun.busy} {onstart} />
+        <FirstRun
+          sections={firstRun.sections}
+          busy={firstRun.busy}
+          error={firstRun.error}
+          {onstart}
+        />
       </div>
       <div class="secondary ruled" aria-hidden="true">
         {#each [0, 1, 2] as n (n)}
@@ -100,9 +109,26 @@
                 </div>
               {/each}
             </div>
+            {#if band.more}
+              <ol class="more" aria-label="More in {band.category}">
+                {#each band.more as s (s.id)}
+                  <li><Story story={s} variant="brief" {onopen} /></li>
+                {:else}
+                  <li class="more-empty">Nothing more in {band.category} for now.</li>
+                {/each}
+              </ol>
+            {/if}
             <p class="jump">
-              <button type="button" onclick={() => onmore?.(band.category)}>
-                More in {band.category} <span aria-hidden="true">→</span>
+              <button
+                type="button"
+                aria-expanded={!!band.more}
+                onclick={() => onmore?.(band.category)}
+              >
+                {#if band.more}
+                  Fewer in {band.category} <span aria-hidden="true">↑</span>
+                {:else}
+                  More in {band.category} <span aria-hidden="true">→</span>
+                {/if}
               </button>
             </p>
           </section>
@@ -218,6 +244,28 @@
   }
   .band-cell {
     min-width: 0;
+  }
+  .more {
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 12px 0 0;
+    border-top: 1px solid var(--rule);
+    columns: 3;
+    column-gap: var(--gutter);
+    column-rule: 1px solid var(--rule);
+  }
+  .more li {
+    break-inside: avoid;
+    padding-bottom: 12px;
+  }
+  .more-empty {
+    font: italic 400 15px/1.4 var(--font-text);
+    color: var(--ink-2);
+  }
+  @media (max-width: 859px) {
+    .more {
+      columns: 1;
+    }
   }
   .jump {
     margin-top: 14px;

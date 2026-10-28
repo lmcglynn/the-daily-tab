@@ -81,10 +81,15 @@ function isMostlyLinks(html: string): boolean {
   return linked / all >= 0.6;
 }
 
-/** HTML → single-line plain text. Never returns markup. */
-export function htmlToText(html: string): string {
+/**
+ * HTML → plain text. Never returns markup. Single-line by default; with `paragraphs`, block
+ * boundaries become "\n" (still plain text) so a standfirst can be told apart from the body.
+ */
+export function htmlToText(html: string, { paragraphs = false } = {}): string {
   if (!html) return '';
+  const br = paragraphs ? '\n' : ' ';
   let s = html
+    .replace(/\s+/g, ' ') // source formatting whitespace is never a paragraph break
     .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(
       /<(script|style|iframe|noscript|svg|object|template|figcaption)\b[\s\S]*?<\/\1\s*>/gi,
@@ -93,8 +98,8 @@ export function htmlToText(html: string): string {
     .replace(/<li\b[^>]*>([\s\S]*?)<\/li\s*>/gi, (li: string, inner: string) =>
       isMostlyLinks(inner) ? ' ' : li,
     )
-    .replace(/<(br|hr)\b[^>]*>/gi, ' ')
-    .replace(/<\/(p|div|li|h[1-6]|blockquote|tr|td)\s*>/gi, ' ')
+    .replace(/<(br|hr)\b[^>]*>/gi, br)
+    .replace(/<\/(p|div|li|h[1-6]|blockquote|tr|td)\s*>/gi, br)
     .replace(/<[^>]*>/g, '');
   // Text may arrive double-encoded (&amp;lt;); decode, then strip any tags that surfaced.
   s = decodeEntities(s);
@@ -104,7 +109,8 @@ export function htmlToText(html: string): string {
       // eslint-disable-next-line no-control-regex -- deliberately stripping control characters
       .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
       .replace(/\p{Cf}/gu, '') // zero-width spaces, BOMs, soft hyphens
-      .replace(/\s+/g, ' ')
+      .replace(paragraphs ? /[^\S\n]+/g : /\s+/g, ' ')
+      .replace(/ ?\n\s*/g, '\n') // collapse runs of breaks (no-op when single-line)
       .trim()
   );
 }
@@ -128,13 +134,19 @@ const BOILERPLATE = [
   /\bContinue reading\.*\s*$/i,
   /\bRead more\.*\s*$/i,
   /\[(…|\.\.\.)\]\s*$/,
+  // Nature and other Springer journals: "Nature, Published online: 27 October 2026; doi:…"
+  /[\w&.' -]{2,60}, Published online: [^;\n]{4,40};\s*doi:\s*\S+/gi,
 ];
 
+/** Plain-text summary, ≤ 300 chars. Paragraph breaks survive as "\n" (see `splitDeck`). */
 export function summarize(html: string, title: string): string {
-  let text = htmlToText(html);
+  let text = htmlToText(html, { paragraphs: true });
   for (const re of BOILERPLATE) text = text.replace(re, ' ');
-  text = text.replace(/\s+/g, ' ').trim();
-  if (!text || text.toLowerCase() === title.toLowerCase()) return '';
+  text = text
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/ ?\n\s*/g, '\n')
+    .trim();
+  if (!text || text.replace(/\n/g, ' ').toLowerCase() === title.toLowerCase()) return '';
   return truncate(text);
 }
 

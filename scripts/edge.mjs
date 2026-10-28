@@ -78,6 +78,28 @@ export async function waitForTarget(browser, pred, timeoutMs = 10000) {
   throw new Error('target not found');
 }
 
+/**
+ * Our extension's service worker, identified by manifest name (Edge's own component extensions
+ * also run workers named background.js). Returns { target, session, extId }.
+ */
+export async function findExtensionWorker(browser, name = 'The Daily Tab', timeoutMs = 15000) {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    for (const t of await browser.targets()) {
+      if (t.type !== 'service_worker' || !t.url.startsWith('chrome-extension://')) continue;
+      const session = await connect(t.webSocketDebuggerUrl).catch(() => null);
+      if (!session) continue;
+      const got = await session
+        .eval(`globalThis.chrome?.runtime?.getManifest?.().name ?? null`)
+        .catch(() => null);
+      if (got === name) return { target: t, session, extId: new URL(t.url).host };
+      session.close();
+    }
+    await sleep(250);
+  }
+  throw new Error(`service worker for "${name}" not found`);
+}
+
 async function connect(wsUrl) {
   const ws = new WebSocket(wsUrl);
   await new Promise((res, rej) => {

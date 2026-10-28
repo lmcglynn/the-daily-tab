@@ -1,4 +1,4 @@
-import { normalizeDate, normalizeEntries } from '@/lib/feed/normalize';
+import { normalizeDate, normalizeEntries, sizedImage } from '@/lib/feed/normalize';
 import { FeedParseError, parseFeed } from '@/lib/feed/parse';
 import { HOUR, NOW, fixture } from './helpers';
 
@@ -107,6 +107,24 @@ describe('normalizeEntries', () => {
   it('uses dc:date for RSS 1.0', () => {
     const [first] = normalizeEntries(FEED, parseFeed(fixture('rss1.xml')), NOW);
     expect(first!.publishedAt).toBe(Date.parse('2026-10-27'));
+  });
+});
+
+describe('sizedImage', () => {
+  it('asks WordPress image CDNs for 1200 px instead of the original', () => {
+    expect(
+      sizedImage(
+        'https://platform.example.com/wp-content/uploads/2026/10/a.jpg?quality=90&strip=all',
+      ),
+    ).toBe(
+      'https://platform.example.com/wp-content/uploads/2026/10/a.jpg?quality=90&strip=all&w=1200',
+    );
+    expect(sizedImage('https://x.example/wp-content/uploads/a.jpg?w=640')).toBe(
+      'https://x.example/wp-content/uploads/a.jpg?w=640',
+    );
+    expect(sizedImage('https://i.guim.co.uk/img/a.jpg?width=700')).toBe(
+      'https://i.guim.co.uk/img/a.jpg?width=700',
+    );
   });
 });
 

@@ -4,10 +4,12 @@
   let {
     sections,
     busy = false,
+    error = '',
     onstart,
   }: {
     sections: SectionChoice[];
     busy?: boolean;
+    error?: string | undefined;
     onstart?: (chosen: string[]) => void;
   } = $props();
 
@@ -43,6 +45,7 @@
     <button class="start" type="submit" disabled={busy || chosen.length === 0}>
       {busy ? 'Going to press…' : 'Print the first edition'}
     </button>
+    {#if error}<p class="error" role="alert">{error}</p>{/if}
     <p class="note">
       Your browser will ask to let The Daily Tab read these sites' feeds. Nothing else is shared.
     </p>
@@ -108,6 +111,13 @@
   .start:disabled {
     opacity: 0.55;
     cursor: default;
+  }
+  .error {
+    margin-top: 12px;
+    font: italic 400 16px/1.4 var(--font-text);
+    color: var(--ink);
+    border-left: 2px solid var(--ink);
+    padding-left: 10px;
   }
   .note {
     margin-top: 12px;

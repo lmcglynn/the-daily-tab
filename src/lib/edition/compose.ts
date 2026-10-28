@@ -126,12 +126,20 @@ export function composeEdition(input: ComposeInput): Edition | null {
   // Section bands
   const bands = sections
     .map((category) => {
-      const itemIds: string[] = [];
-      for (const i of pool) {
-        if (itemIds.length >= BAND_SIZE) break;
-        if (cat(i) === category && free(i)) itemIds.push(take(i));
+      // One story per feed first so a prolific feed can't fill the band, then the newest rest.
+      const picked: Item[] = [];
+      const feedsInBand = new Set<string>();
+      for (const pass of [0, 1]) {
+        for (const i of pool) {
+          if (picked.length >= BAND_SIZE) break;
+          if (cat(i) !== category || !free(i)) continue;
+          if (pass === 0 && feedsInBand.has(i.feedId)) continue;
+          feedsInBand.add(i.feedId);
+          take(i);
+          picked.push(i);
+        }
       }
-      return { category, itemIds };
+      return { category, itemIds: picked.sort(newestFirst).map((i) => i.id) };
     })
     .filter((b) => b.itemIds.length > 0);
 
