@@ -5,6 +5,10 @@ broadsheet. Headlines come from RSS and Atom feeds you choose, refresh in the ba
 minutes, and open instantly, even offline. It also has a weather ear and a markets box, both
 optional.
 
+![The Daily Tab's front page: a blackletter masthead with the time and weather in its ears, a lead story about ceasefire talks with a photo, a markets box showing the S&P 500, and headlines from other sections down the right](docs/screenshot.png)
+
+<sub>The front page with sample stories, as shown by `npm run preview`.</sub>
+
 It runs on **Microsoft Edge** and **Google Chrome**. It isn't in either browser's store, so you
 build it from this repository and load it yourself, which takes about five minutes.
 
