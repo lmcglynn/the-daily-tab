@@ -46,6 +46,11 @@ a {
   border-radius: 1px;
 }
 
+::selection {
+  background: var(--spot);
+  color: var(--paper);
+}
+
 button {
   font: inherit;
   color: inherit;

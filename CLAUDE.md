@@ -88,8 +88,8 @@ Node is installed machine-wide (`C:\Program Files\nodejs`). In the Bash tool, pr
 - Host access is requested per feed origin through `optional_host_permissions` when a feed is added.
   Do not add `<all_urls>` to `host_permissions`.
 - Pure functions take `now` as a parameter instead of calling `Date.now()` so tests are deterministic.
-- Colors come only from tokens in `tokens.css`; the spot color is used only for kickers, "new" dots
-  and focus rings.
+- Colors come only from tokens in `tokens.css`; the spot color is used only for kickers, "new" dots,
+  focus rings and text selection.
 - Headings: masthead `h1`, lead `h2`, all other headlines `h3`; every story is an `<article>`.
 - Ask before adding any dependency.
 - After each milestone: `npm run check`, commit, summarize.
