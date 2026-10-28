@@ -66,12 +66,16 @@ fonts < 300 KB total · 50-feed refresh < 30 s.
 
 ## 4. Settings page
 
-- [ ] Paper name
-- [ ] Add feed (site or feed URL → discovery → permission request)
-- [ ] Rename, set category, remove
-- [ ] Drag to reorder sections and feeds
-- [ ] Refresh interval, theme, photo style, spot color, pinned links
-- [ ] OPML import and export
+- [x] Paper name
+- [x] Add feed (site or feed URL → site-origin permission → discovery → feed-origin permission);
+      origins no feed uses are released
+- [x] Rename feeds and sections, set category, remove (two-step confirm)
+- [x] Drag to reorder sections and feeds (grip handle; ↑/↓ buttons as the keyboard path)
+- [x] Refresh interval (alarm rescheduled), theme, photo style, spot color (contrast warning),
+      pinned links
+- [x] OPML import (preview, then one permission request) and export
+- [x] Per-feed status (updated / failed with retry time / needs permission + Allow)
+- [x] `npm run verify:settings` drives every control in headless Edge
 
 ## 5. Polish
 

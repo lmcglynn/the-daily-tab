@@ -41,6 +41,9 @@ Verification against real Edge (headless, throwaway profile, driven over CDP by 
 - `npm run verify:newtab`: e2e build; time to first headlines (median of 5 tabs, with phase
   marks `dt:script` / `dt:data` / `first-headlines`), new-edition button without reflow, read
   state, "More in …", offline folio, corrections.
+- `npm run verify:settings`: e2e build; drives every settings control and checks storage.sync.
+  Permission requests in these scripts need `Runtime.evaluate` with `userGesture: true`, and only
+  work for origins the e2e build already holds (headless Edge never shows the prompt).
 - Scripts that probe IndexedDB from CDP must never `indexedDB.open('daily-tab')` before the
   extension has created it (it blocks Dexie's upgrade); use the `idb()` helper in
   `scripts/verify-newtab.mjs`. Find the worker with `findExtensionWorker()`, not by URL.

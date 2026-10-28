@@ -34,6 +34,10 @@ export default defineBackground(() => {
     const newMin = (settings?.newValue as { refreshMinutes?: number } | undefined)?.refreshMinutes;
     if (settings && oldMin !== newMin) void ensureAlarm(true);
     if (Object.keys(changes).some(isFeedKey)) scheduleFeedsChanged();
+    else if (settings && sectionsKey(settings.oldValue) !== sectionsKey(settings.newValue)) {
+      // Section order changes the layout but needs no fetch.
+      scheduleCompose();
+    }
   });
 
   // A newly granted origin means a feed can be fetched now.
@@ -65,6 +69,14 @@ function scheduleFeedsChanged() {
   clearTimeout(feedsChangedTimer);
   // New feeds have no fetch state, so a normal refresh picks them up; removed ones get pruned.
   feedsChangedTimer = setTimeout(() => void runRefresh(false), 1500);
+}
+
+const sectionsKey = (v: unknown) => JSON.stringify((v as { sections?: string[] })?.sections ?? []);
+
+let composeTimer: ReturnType<typeof setTimeout> | undefined;
+function scheduleCompose() {
+  clearTimeout(composeTimer);
+  composeTimer = setTimeout(() => void handle({ type: 'compose' }), 800);
 }
 
 let running: Promise<RefreshReport | null> | null = null;

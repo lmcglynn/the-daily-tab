@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head><title>Exported from another reader</title></head>
+  <body>
+    <outline text="Space">
+      <outline type="rss" text="Space Example" xmlUrl="https://space.example.com/feed.xml" htmlUrl="https://space.example.com/"/>
+    </outline>
+    <outline text="Culture">
+      <outline type="rss" text="Culture Example" xmlUrl="https://culture.example.org/rss" htmlUrl="https://culture.example.org/"/>
+      <outline type="rss" text="BBC (already followed)" xmlUrl="https://feeds.bbci.co.uk/news/world/rss.xml"/>
+    </outline>
+  </body>
+</opml>

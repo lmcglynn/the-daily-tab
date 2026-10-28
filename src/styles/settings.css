@@ -1,0 +1,92 @@
+/* Settings page: the paper's colors, but a plain system UI (no newspaper type). */
+body {
+  font-family:
+    'Segoe UI Variable',
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  background-image: none;
+}
+
+input[type='text'],
+input:not([type]),
+select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);
+  border-radius: 4px;
+  padding: 6px 8px;
+  min-height: 32px;
+}
+
+button,
+.button-like {
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  font-weight: 500;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--ink) 45%, transparent);
+  border-radius: 4px;
+  padding: 5px 12px;
+  min-height: 32px;
+  cursor: pointer;
+}
+button:hover:not(:disabled),
+.button-like:hover {
+  border-color: var(--ink);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+button.primary {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+button.link {
+  border: 0;
+  padding: 0 4px;
+  min-height: 0;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  color: var(--ink-2);
+}
+button.icon {
+  padding: 0;
+  width: 30px;
+  justify-content: center;
+}
+button.danger {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.field > span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.hint {
+  color: var(--ink-2);
+  font-size: 13.5px;
+  margin: 6px 0;
+}
+.error {
+  margin: 10px 0 0;
+  padding-left: 10px;
+  border-left: 3px solid var(--ink);
+  color: var(--ink);
+}

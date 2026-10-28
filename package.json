@@ -18,6 +18,7 @@
     "verify:edge": "npm run build:edge && node scripts/smoke-edge.mjs",
     "verify:background": "npm run build:e2e && node scripts/verify-background.mjs",
     "verify:newtab": "npm run build:e2e && node scripts/verify-newtab.mjs",
+    "verify:settings": "npm run build:e2e && node scripts/verify-settings.mjs",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "typecheck": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
