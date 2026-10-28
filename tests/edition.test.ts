@@ -145,6 +145,17 @@ describe('composeEdition', () => {
     expect(e.number).toBe(5);
   });
 
+  it('counts only the last 6 hours of coverage toward the lead', () => {
+    // The Geneva story still groups, but only g3 is recent enough: one feed, so it can't lead.
+    const age = { g1: 8 * HOUR, g2: 7 * HOUR, g3: 5 * HOUR } as Record<string, number>;
+    const items = frontPageItems().map((i) =>
+      i.id in age ? { ...i, publishedAt: NOW - age[i.id]! } : i,
+    );
+    const e = composeEdition({ items, feeds, sections, now: NOW, previousNumber: 0 })!;
+    expect(e.leadItemId).toBe('h2');
+    expect(e.leadRelatedItemIds).toEqual(['h1']);
+  });
+
   it('falls back to the newest photo story from the top section', () => {
     const items = frontPageItems().map(({ storyId: _s, ...i }) => i);
     const e = composeEdition({ items, feeds, sections, now: NOW, previousNumber: 0 })!;
