@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:prism="http://prismstandard.org/namespaces/basic/2.0/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns="http://purl.org/rss/1.0/">
+  <channel rdf:about="http://science.example.com/journal.rss">
+    <title>Example Journal</title>
+    <link>https://science.example.com/journal</link>
+    <items>
+      <rdf:Seq>
+        <rdf:li rdf:resource="https://science.example.com/articles/s41586-026-0001"/>
+      </rdf:Seq>
+    </items>
+  </channel>
+  <item rdf:about="https://science.example.com/articles/s41586-026-0001">
+    <title><![CDATA[Ancient genomes reveal early farming routes]]></title>
+    <link>https://science.example.com/articles/s41586-026-0001</link>
+    <content:encoded><![CDATA[<p>Nature, Published online: 27 October 2026; <a href="https://doi.org/x">doi:10.1038/x</a></p>Ancient genomes reveal early farming routes]]></content:encoded>
+    <dc:title><![CDATA[Ancient genomes reveal early farming routes]]></dc:title>
+    <dc:creator>A. Researcher</dc:creator>
+    <dc:date>2026-10-27</dc:date>
+    <prism:publicationDate>2026-10-27</prism:publicationDate>
+  </item>
+  <item rdf:about="https://science.example.com/articles/s41586-026-0002">
+    <title>Second item</title>
+    <link>https://science.example.com/articles/s41586-026-0002</link>
+    <description>A short description.</description>
+    <dc:date>2026-10-26T12:00:00Z</dc:date>
+  </item>
+</rdf:RDF>

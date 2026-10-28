@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?><feed
+	xmlns="http://www.w3.org/2005/Atom"
+	xmlns:media="http://search.yahoo.com/mrss/"
+	xml:lang="en-US"
+	>
+	<title type="text">Example Tech</title>
+	<link rel="alternate" type="text/html" href="https://tech.example.com" />
+	<link rel="self" type="application/atom+xml" href="https://tech.example.com/rss/index.xml" />
+	<id>https://tech.example.com/rss/index.xml</id>
+	<updated>2026-10-27T09:00:00+00:00</updated>
+	<entry>
+		<author><name>Ada Writer</name></author>
+		<title type="html"><![CDATA[New chip doubles battery life, maker says]]></title>
+		<link rel="alternate" type="text/html" href="https://tech.example.com/2026/10/27/chip" />
+		<id>https://tech.example.com/?p=1001</id>
+		<updated>2026-10-27T09:00:00-04:00</updated>
+		<published>2026-10-27T08:30:00-04:00</published>
+		<summary type="html"><![CDATA[The company claims a <em>2x</em> improvement.]]></summary>
+		<content type="html"><![CDATA[<figure><img src="https://img.example.com/chip.jpg" alt="" /><figcaption>Photo: Example</figcaption></figure><p>The company claims a 2x improvement.</p>]]></content>
+	</entry>
+	<entry>
+		<title type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml">An <b>XHTML</b> title</div></title>
+		<link href="https://tech.example.com/xhtml" />
+		<id>tag:tech.example.com,2026:xhtml</id>
+		<updated>2026-10-27T07:00:00Z</updated>
+		<content type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml"><p>Inline <i>xhtml</i> content.</p></div></content>
+		<link rel="enclosure" type="image/png" href="https://img.example.com/xhtml.png" />
+	</entry>
+</feed>

@@ -32,6 +32,15 @@ the same build. Firefox is out of scope.
 | `npm run check`        | lint + typecheck + test (run before every commit)                                                 |
 | `npm run size`         | Reports gzipped new-tab JS and font sizes against budgets                                         |
 
+Verification against real Edge (headless, throwaway profile, driven over CDP by `scripts/edge.mjs`):
+
+- `npm run verify:edge`: production build loads; the new tab is overridden.
+- `npm run verify:background`: builds `--mode e2e` (→ `.output/edge-mv3-e2e`, the only build with
+  starter origins pre-granted as `host_permissions`, because headless Edge cannot answer a
+  permission prompt) and checks the worker refreshes and composes with no tab open.
+- `LIVE=1 npx vitest run tests/live.test.ts --disableConsoleIntercept`: engine against the real
+  starter feeds.
+
 Node is installed machine-wide (`C:\Program Files\nodejs`). In the Bash tool, prefix
 `export PATH="/c/Program Files/nodejs:$PATH"` if `node` is not found.
 

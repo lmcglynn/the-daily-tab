@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Hacker News: Front Page</title><link>https://news.ycombinator.com/</link><description>Hacker News RSS</description>
+<item><title>Show HN: A tiny database in 500 lines</title><description><![CDATA[
+<p>Article URL: <a href="https://example.dev/tinydb">https://example.dev/tinydb</a></p>
+<p>Comments URL: <a href="https://news.ycombinator.com/item?id=1">https://news.ycombinator.com/item?id=1</a></p>
+<p>Points: 120</p>
+<p># Comments: 45</p>
+]]></description><pubDate>Tue, 27 Oct 2026 09:01:02 +0000</pubDate><link>https://example.dev/tinydb</link><dc:creator>someone</dc:creator><comments>https://news.ycombinator.com/item?id=1</comments><guid isPermaLink="false">https://news.ycombinator.com/item?id=1</guid></item>
+</channel></rss>

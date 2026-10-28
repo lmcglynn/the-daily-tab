@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/" version="2.0">
+  <channel>
+    <title><![CDATA[Example World News]]></title>
+    <link>https://news.example.com/world</link>
+    <atom:link href="https://feeds.example.com/world/rss.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title><![CDATA[Leaders meet in Geneva as ceasefire talks resume]]></title>
+      <description><![CDATA[<p>Delegations arrived on Monday for a <b>third round</b> of talks &amp; negotiations.</p><script>alert(1)</script>]]></description>
+      <link>https://news.example.com/world/123?at_medium=RSS</link>
+      <guid isPermaLink="false">https://news.example.com/world/123</guid>
+      <pubDate>Tue, 27 Oct 2026 08:15:00 GMT</pubDate>
+      <media:thumbnail width="240" height="135" url="https://img.example.com/240/geneva.jpg"/>
+      <media:thumbnail width="976" height="549" url="https://img.example.com/976/geneva.jpg"/>
+    </item>
+    <item>
+      <title>Floods &amp; landslides hit northern provinces</title>
+      <description>Thousands have been evacuated after days of rain.</description>
+      <link>/world/124</link>
+      <pubDate>Tue, 27 Oct 2026 07:00:00 +0100</pubDate>
+      <enclosure url="https://img.example.com/floods.jpg" type="image/jpeg" length="12345"/>
+    </item>
+    <item>
+      <title>Item with a javascript link</title>
+      <link>javascript:alert(1)</link>
+      <pubDate>Tue, 27 Oct 2026 06:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>Item with an unparseable date</title>
+      <link>https://news.example.com/world/125</link>
+      <pubDate>sometime last week</pubDate>
+      <content:encoded><![CDATA[<p><img src="https://feeds.feedburner.com/~r/pixel.gif" width="1" height="1"/><img src="//img.example.com/protocol-relative.jpg"/>Body text.</p>]]></content:encoded>
+    </item>
+    <item>
+      <title>Item from the future</title>
+      <link>https://news.example.com/world/126</link>
+      <pubDate>Fri, 01 Jan 2100 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>Item from long ago</title>
+      <link>https://news.example.com/world/127</link>
+      <pubDate>Mon, 01 Jan 2001 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title><![CDATA[Leaders meet in Geneva as ceasefire talks resume]]></title>
+      <link>https://news.example.com/world/123?at_medium=RSS</link>
+      <guid isPermaLink="false">https://news.example.com/world/123</guid>
+      <pubDate>Tue, 27 Oct 2026 08:15:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>
