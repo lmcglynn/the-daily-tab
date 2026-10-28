@@ -1,4 +1,4 @@
-import type { PinnedLink, Settings } from './types';
+import type { PinnedLink, Settings, WeatherPlace } from './types';
 
 export const DEFAULT_SPOT = '#A4161A';
 
@@ -11,7 +11,20 @@ export const DEFAULT_SETTINGS: Settings = {
   pinnedLinks: [],
   installedAt: 0,
   sections: ['World', 'Tech', 'Science'],
+  weatherPlace: null,
+  units: 'f',
+  showMarket: false,
 };
+
+function asPlace(v: unknown): WeatherPlace | null {
+  if (!v || typeof v !== 'object') return null;
+  const p = v as Record<string, unknown>;
+  const lat = Number(p.lat);
+  const lon = Number(p.lon);
+  if (typeof p.name !== 'string' || !p.name.trim()) return null;
+  if (!(Math.abs(lat) <= 90) || !(Math.abs(lon) <= 180)) return null;
+  return { name: p.name, region: typeof p.region === 'string' ? p.region : '', lat, lon };
+}
 
 /**
  * Arrays can come back from chrome.storage as {"0": …, "1": …}: Chrome's serializer does not
@@ -54,5 +67,8 @@ export function normalizeSettings(raw: unknown): Settings {
     pinnedLinks: pinned ?? d.pinnedLinks,
     installedAt: typeof r.installedAt === 'number' ? r.installedAt : d.installedAt,
     sections: sections ?? d.sections,
+    weatherPlace: asPlace(r.weatherPlace),
+    units: r.units === 'c' ? 'c' : 'f',
+    showMarket: r.showMarket === true,
   };
 }

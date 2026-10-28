@@ -73,12 +73,75 @@ describe('buildFrontPage', () => {
     online: true,
   };
 
-  it('leads with the story carried by three feeds and lists the others', () => {
+  it('leads with the story carried by three feeds, with headlines under it', () => {
     const v = buildFrontPage(base);
     expect(v.lead!.title).toMatch(/Geneva/);
-    expect(v.lead!.related.map((r) => r.source).sort()).toEqual(['BBC News', 'NPR']);
     expect(v.lead!.deck).toMatch(/^Mediators hope/);
     expect(v.lead!.body.length).toBeGreaterThan(100);
+    expect(v.leadColumn).toHaveLength(4);
+    const placed = new Set([v.lead!.id, ...v.secondary.map((s) => s.id)]);
+    expect(v.leadColumn.every((s) => !placed.has(s.id))).toBe(true);
+  });
+
+  it('shows weather in the ear and moves the new count to the folio', () => {
+    const settings = {
+      ...fx.settings,
+      weatherPlace: {
+        name: 'Seattle',
+        region: 'Washington, United States',
+        lat: 47.6,
+        lon: -122.3,
+      },
+    };
+    const weather = {
+      at: fx.NOW - 10 * 60_000,
+      lat: 47.6,
+      lon: -122.3,
+      units: 'f' as const,
+      temp: 47.6,
+      code: 3,
+      isDay: true,
+      high: 52.4,
+      low: 40.6,
+    };
+    const v = buildFrontPage({ ...base, settings, weather });
+    expect(v.weather).toMatchObject({ temp: '48°', condition: 'Cloudy', range: 'H 52° · L 41°' });
+    expect(v.weather!.label).toMatch(/^Weather in Seattle: 48 degrees Fahrenheit, cloudy/);
+    // Switching units (until the next fetch) or a stale report hides it instead of lying.
+    expect(
+      buildFrontPage({ ...base, settings: { ...settings, units: 'c' }, weather }).weather,
+    ).toBeNull();
+    expect(
+      buildFrontPage({ ...base, settings, weather: { ...weather, at: fx.NOW - 7 * 3600_000 } })
+        .weather,
+    ).toBeNull();
+  });
+
+  it('formats the S&P 500 box only when enabled', () => {
+    const market = {
+      at: fx.NOW,
+      price: 7737.01,
+      previousClose: 7722.6,
+      marketTime: Date.parse('2026-10-27T13:40:00Z'), // 9:40 a.m. ET
+      timezone: 'America/New_York',
+      points: [7722, 7730, 7737],
+    };
+    const off = { ...fx.settings, showMarket: false };
+    expect(buildFrontPage({ ...base, settings: off, market }).market).toBeNull();
+    const v = buildFrontPage({ ...base, settings: { ...fx.settings, showMarket: true }, market });
+    expect(v.market).toMatchObject({
+      price: '7,737.01',
+      change: '+14.41',
+      percent: '0.19%',
+      direction: 'up',
+    });
+    expect(v.market!.label).toMatch(/^S&P 500 7,737.01, up 14.41 points or 0.19 percent/);
+    const down = buildFrontPage({
+      ...base,
+      settings: { ...fx.settings, showMarket: true },
+      market: { ...market, price: 7700 },
+    }).market!;
+    expect(down).toMatchObject({ change: '−22.60', direction: 'down' });
   });
 
   it('builds the folio line and ears', () => {
@@ -94,7 +157,13 @@ describe('buildFrontPage', () => {
 
   it('marks read and new stories', () => {
     const v = buildFrontPage(base);
-    const all = [v.lead!, ...v.secondary, ...v.bands.flatMap((b) => b.stories), ...v.brief];
+    const all = [
+      v.lead!,
+      ...v.secondary,
+      ...v.leadColumn,
+      ...v.bands.flatMap((b) => b.stories),
+      ...v.brief,
+    ];
     expect(all.find((s) => s.title.startsWith('Central bank'))!.read).toBe(true);
     expect(all.find((s) => s.title.startsWith('Floodwaters'))!.isNew).toBe(true);
     expect(all.find((s) => s.title.startsWith('Heatwave'))!.isNew).toBe(false);

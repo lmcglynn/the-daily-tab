@@ -1,5 +1,7 @@
 import type { Plugin } from 'vite';
 import { defineConfig } from 'wxt';
+import { MARKET_ORIGINS } from './src/lib/extras/market';
+import { WEATHER_ORIGINS } from './src/lib/extras/weather';
 import { originPatterns, starterFeeds } from './src/lib/seed';
 
 // Faces visible above the fold. Preloading them from the new tab's <head> means the first
@@ -47,7 +49,11 @@ export default defineConfig({
     // Automated checks only (`wxt build --mode e2e` → .output/edge-mv3-e2e): headless Edge
     // cannot answer the permission prompt, so the starter origins are pre-granted there.
     ...(mode === 'e2e' && {
-      host_permissions: originPatterns(starterFeeds().map((f) => f.url)),
+      host_permissions: [
+        ...originPatterns(starterFeeds().map((f) => f.url)),
+        ...WEATHER_ORIGINS,
+        ...MARKET_ORIGINS,
+      ],
     }),
   }),
 });

@@ -32,6 +32,7 @@
             edition.leadItemId,
             ...edition.leadRelatedItemIds,
             ...edition.secondaryItemIds,
+            ...(edition.leadColumnItemIds || []),
             ...edition.sections.flatMap((s) => s.itemIds),
             ...edition.briefItemIds,
           ];
@@ -57,7 +58,7 @@
   globalThis.__dailyTabPrefetch = Promise.all([
     readDB(),
     chrome.storage.sync.get(null),
-    chrome.storage.local.get('lastVisitAt'),
+    chrome.storage.local.get(['lastVisitAt', 'weather', 'market']),
   ]).then(
     ([db, sync, local]) => ({ db, sync, local }),
     () => null,

@@ -3,6 +3,7 @@
   import Masthead from './Masthead.svelte';
   import type { FrontPageView, SectionChoice } from './model';
   import Story from './Story.svelte';
+  import Ticker from './Ticker.svelte';
 
   let {
     view,
@@ -92,9 +93,28 @@
     <main class="grid" id="front" tabindex="-1">
       {#if view.lead}
         <div class="slot-lead">
-          <Story story={view.lead} variant="lead" {onopen} />
+          <Story
+            story={view.lead}
+            variant="lead"
+            {onopen}
+            extras={view.leadColumn.length || view.market ? leadExtras : undefined}
+          />
         </div>
       {/if}
+
+      {#snippet leadExtras()}
+        {#if view.leadColumn.length}
+          <section class="lead-column" aria-labelledby="also-today">
+            <h2 class="column-label" id="also-today">Also today</h2>
+            <ul>
+              {#each view.leadColumn as s (s.id)}
+                <li><Story story={s} variant="brief" {onopen} /></li>
+              {/each}
+            </ul>
+          </section>
+        {/if}
+        {#if view.market}<Ticker market={view.market} />{/if}
+      {/snippet}
 
       {#if view.secondary.length}
         <div class="secondary ruled">
@@ -288,6 +308,29 @@
     border-top: 1px solid var(--rule);
     margin-top: 16px;
     padding-top: 16px;
+  }
+
+  .lead-column {
+    border-top: 1px solid var(--rule);
+    padding-top: 10px;
+  }
+  .column-label {
+    font: 700 10.5px/1.4 var(--font-label);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    margin-bottom: 4px;
+  }
+  .lead-column ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .lead-column li {
+    padding: 8px 0;
+  }
+  .lead-column li + li {
+    border-top: 1px solid var(--rule);
   }
 
   .fold {

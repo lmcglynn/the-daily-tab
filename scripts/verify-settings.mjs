@@ -193,6 +193,76 @@ try {
   const addedFeed = feedsOf(await sync()).find((f) => f.url.includes('/uk/technology/rss'));
   check(addedFeed?.category === 'Tech', `subscribed to ${addedFeed?.title} in Tech`);
 
+  step('weather: find a city, use it (live Open-Meteo)');
+  await setValue('form.find input', 'Seattle', 'input');
+  await gesture(`document.querySelector('form.find').requestSubmit()`);
+  let placeFound = false;
+  for (let i = 0; i < 40 && !placeFound; i++) {
+    await sleep(250);
+    placeFound = await page.eval(`!!document.querySelector('.places li')`);
+  }
+  check(placeFound, 'geocoding listed places for "Seattle"');
+  await page.eval(`document.querySelector('.places li button').click()`);
+  await sleep(300);
+  const place = (await sync()).settings.weatherPlace;
+  check(
+    place?.name === 'Seattle' && Array.isArray((await sync()).settings.sections),
+    `place saved (${place?.name}, ${place?.region}); sections still an array`,
+  );
+  const local = () => page.eval(`chrome.storage.local.get(['weather', 'market'])`);
+  let w = null;
+  for (let i = 0; i < 40 && !w; i++) {
+    await sleep(250);
+    w = (await local()).weather ?? null;
+  }
+  check(
+    typeof w?.temp === 'number' && w.units === 'f',
+    `weather fetched: ${w?.temp}°F, code ${w?.code}`,
+  );
+
+  step('markets: tick the S&P 500 box (live Yahoo)');
+  await gesture(
+    `[...document.querySelectorAll('label.choice')].find((l) => l.textContent.includes('S&P 500')).querySelector('input').click()`,
+  );
+  let m = null;
+  for (let i = 0; i < 40 && !m; i++) {
+    await sleep(250);
+    m = (await local()).market ?? null;
+  }
+  check(
+    (await sync()).settings.showMarket === true && typeof m?.price === 'number',
+    `S&P 500 fetched: ${m?.price} (${m?.points?.length} points)`,
+  );
+
+  step('units: switch to Celsius refetches');
+  await page.eval(`document.querySelector('input[name="units"][value="c"]').click()`);
+  let wc = null;
+  for (let i = 0; i < 40 && wc?.units !== 'c'; i++) {
+    await sleep(250);
+    wc = (await local()).weather ?? null;
+  }
+  check(wc?.units === 'c', `weather refetched in °C: ${wc?.temp}°C`);
+
+  step('new tab shows the weather ear and the S&P 500 box');
+  const tab = await browser.newPage();
+  await tab.navigate(`chrome-extension://${extId}/newtab.html`);
+  await sleep(1200);
+  // Visible text only (the ear also carries a screen-reader sentence).
+  const ear = await tab.eval(
+    `[...document.querySelectorAll('.ear-right [aria-hidden=true]')].map((e) => e.innerText).join(' ').replace(/\\s+/g, ' ').trim()`,
+  );
+  const tick = await tab.eval(
+    `document.querySelector('.ticker')?.innerText.replace(/\\s+/g, ' ').trim() ?? ''`,
+  );
+  const folio = await tab.eval(`document.querySelector('.folio').innerText.replace(/\\s+/g, ' ')`);
+  check(/^-?\d+° \S/.test(ear) && /H -?\d+° · L -?\d+°/.test(ear), `right ear: "${ear}"`);
+  check(
+    /^S&P 500 [\d,]+\.\d\d [▲▼■] [+−]/.test(tick) && /DELAYED/i.test(tick),
+    `ticker: "${tick}"`,
+  );
+  check(!/NEW SINCE/i.test(ear), `"new since" is not in the ear (folio: "${folio}")`);
+  tab.close();
+
   step('OPML import preview');
   const docNode = await page.send('DOM.getDocument');
   const { nodeId } = await page.send('DOM.querySelector', {

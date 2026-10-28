@@ -31,8 +31,16 @@
       <span aria-hidden="true">{view.paperName}</span>
     </h1>
 
-    <div class="ear ear-right">
-      {#if view.newSince && view.newCount > 0}
+    <div class="ear ear-right" class:weather={!!view.weather}>
+      {#if view.weather}
+        <span class="visually-hidden">{view.weather.label}</span>
+        <span class="ear-big" aria-hidden="true"
+          >{view.weather.temp} <span class="condition">{view.weather.condition}</span></span
+        >
+        <span class="ear-small" aria-hidden="true" title={view.weather.place}
+          >{view.weather.range}</span
+        >
+      {:else if view.newSince && view.newCount > 0}
         <span class="ear-big">{view.newCount} new</span>
         <span class="ear-small">since {view.newSince}</span>
       {:else if view.newSince}
@@ -51,7 +59,9 @@
     ><span class="sep" aria-hidden="true">·</span><span>No. {view.issue}</span><span
       class="sep"
       aria-hidden="true">·</span
-    >{#if onrefresh}<button
+    >{#if view.weather && view.newSince && view.newCount > 0}<span
+        >{view.newCount} new since {view.newSince}</span
+      ><span class="sep" aria-hidden="true">·</span>{/if}{#if onrefresh}<button
         type="button"
         class="refresh"
         onclick={onrefresh}
@@ -144,6 +154,12 @@
   }
   .ear-big {
     font: 700 19px/1.1 var(--font-head);
+  }
+  .condition {
+    font: 500 11px/1 var(--font-label);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-left: 2px;
   }
   .meridiem {
     font: 500 10px/1 var(--font-label);

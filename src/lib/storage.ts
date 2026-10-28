@@ -48,6 +48,11 @@ export async function getLastVisitAt(): Promise<number | undefined> {
   return got[LAST_VISIT_KEY] as number | undefined;
 }
 
+/** Everything the new tab reads from storage.local in one call. */
+export async function getLocalState(): Promise<Record<string, unknown>> {
+  return browser.storage.local.get([LAST_VISIT_KEY, 'weather', 'market']);
+}
+
 export async function setLastVisitAt(t: number): Promise<void> {
   await browser.storage.local.set({ [LAST_VISIT_KEY]: t });
 }

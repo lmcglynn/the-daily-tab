@@ -16,6 +16,7 @@
     sectionList,
     unusedOrigins,
   } from '@/lib/feeds-edit';
+  import { extrasOrigins } from '@/lib/extras/refresh';
   import { feedIdFor } from '@/lib/hash';
   import type { Broadcast } from '@/lib/messages';
   import type { OpmlFeed } from '@/lib/opml';
@@ -34,6 +35,7 @@
   import FeedSections from './FeedSections.svelte';
   import OpmlTools from './OpmlTools.svelte';
   import PinnedLinks from './PinnedLinks.svelte';
+  import WeatherMarket from './WeatherMarket.svelte';
 
   const db = getDB();
 
@@ -132,7 +134,9 @@
   async function releaseUnused(list: Feed[]) {
     try {
       const all = (await browser.permissions.getAll()).origins ?? [];
-      const extra = unusedOrigins(all, list);
+      // Keep what the weather and S&P 500 box use; release anything else no feed needs.
+      const keep = new Set(extrasOrigins(settings));
+      const extra = unusedOrigins(all, list).filter((o) => !keep.has(o));
       if (extra.length) await browser.permissions.remove({ origins: extra });
     } catch {
       // Required (manifest) host permissions can't be removed; nothing else to do.
@@ -393,6 +397,18 @@
             </p>
           {/if}
         </fieldset>
+      </section>
+
+      <section aria-labelledby="extras-h">
+        <h2 id="extras-h">Weather and markets</h2>
+        <WeatherMarket
+          {settings}
+          onpatch={async (patch) => {
+            await patchSettings(patch);
+            // Removing a place or the S&P 500 box gives its host access back.
+            await releaseUnused(feeds);
+          }}
+        />
       </section>
 
       <section aria-labelledby="pinned-h">

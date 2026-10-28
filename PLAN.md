@@ -93,3 +93,13 @@ fonts < 300 KB total · 50-feed refresh < 30 s.
       Warm: headlines in the page ~73 ms median, painted in final fonts ~103 ms. Cold first
       tab after browser start: ~126 / ~174 ms. Fixed per-tab cost of the first layout (~25 ms,
       independent of page content; see verify:newtab phase marks) is the remaining floor.
+
+## After milestone 5
+
+- [x] Lead body in one justified column (two narrow columns read choppily)
+- [x] "The story elsewhere" replaced by "Also today": four headlines picked by the composer
+      after the secondary stories, from feeds not yet on the page first
+- [x] Weather in the right ear (city set in Settings, Open-Meteo, °F/°C setting); the "new since"
+      count moves into the folio when weather is shown
+- [x] S&P 500 box with an intraday sparkline at the foot of the lead column (Yahoo Finance,
+      delayed, hidden if the source stops answering), enabled in Settings

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import type { StoryView } from './model';
   import Photo from './Photo.svelte';
 
@@ -8,6 +9,7 @@
     variant,
     photo = true,
     onopen,
+    extras,
   }: {
     story: StoryView;
     variant: Variant;
@@ -15,6 +17,8 @@
     photo?: boolean;
     /** Called for left, middle and modified clicks on the headline. */
     onopen?: (id: string, e: MouseEvent) => void;
+    /** Lead only: what fills its text column under the body (headlines, ticker). */
+    extras?: Snippet;
   } = $props();
 
   const headingId = $derived(`h-${story.id}`);
@@ -71,19 +75,7 @@
             {story.source} · <time datetime={story.datetime}>{story.ago}</time>
           </p>
           {#if story.body}<p class="body">{story.body}</p>{/if}
-          {#if story.related.length}
-            <section class="elsewhere" aria-label="The story elsewhere">
-              <p class="elsewhere-label">The story elsewhere</p>
-              <ul>
-                {#each story.related as r (r.link)}
-                  <li>
-                    <span class="elsewhere-source">{r.source}</span>
-                    <a href={r.link}>{r.title}</a>
-                  </li>
-                {/each}
-              </ul>
-            </section>
-          {/if}
+          {#if extras}<div class="lead-extras">{@render extras()}</div>{/if}
         </div>
       </div>
     {:else}
@@ -138,7 +130,9 @@
     text-decoration-thickness: 1px;
     text-underline-offset: 0.12em;
   }
-  .read .headline {
+  /* Child combinators: lead-column headlines are Story instances nested in the lead, and
+     scoped styles are per component, so `.read .headline` would mute them too. */
+  .read > .headline {
     color: var(--ink-muted);
   }
 
@@ -162,13 +156,13 @@
   }
 
   /* Lead ---------------------------------------------------------------- */
-  .lead .headline {
+  .lead > .headline {
     font-size: clamp(30px, 2.4vw + 13px, 48px);
     line-height: 1.06;
     letter-spacing: -0.01em;
     margin-bottom: 12px;
   }
-  .lead .deck {
+  .lead > .deck {
     font-size: clamp(18px, 0.6vw + 12px, 22px);
     line-height: 1.32;
     margin-bottom: 18px;
@@ -217,57 +211,36 @@
       grid-column: 4;
     }
   }
-  .lead .byline {
+  .lead-text > .byline {
     padding-bottom: 10px;
     margin-bottom: 12px;
     border-bottom: 1px solid var(--rule);
   }
+  /* One justified column: the summary is short, and two narrow columns read choppily. */
   .body {
     font-size: 16.5px;
     line-height: 1.5;
     text-align: justify;
     hyphens: auto;
-    columns: 2;
-    column-gap: var(--gutter);
-    column-rule: 1px solid var(--rule);
   }
-  .lead:not(.has-photo) .body {
-    columns: 3;
-  }
-  .elsewhere {
+  .lead-extras {
     margin-top: 16px;
-    padding-top: 10px;
-    border-top: 1px solid var(--rule);
   }
-  .elsewhere-label {
-    font: 700 10.5px/1.4 var(--font-label);
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--ink-2);
-    margin-bottom: 6px;
+  /* Without a photo the text spans the lead; set body and headlines side by side instead
+     of one over-long line. */
+  .lead:not(.has-photo) .lead-text {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--gutter);
+    align-content: start;
   }
-  .elsewhere ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
+  .lead:not(.has-photo) .lead-text > .byline {
+    grid-column: 1 / -1;
   }
-  .elsewhere li {
-    font: 700 15px/1.3 var(--font-head);
-    padding: 6px 0;
-  }
-  .elsewhere li + li {
-    border-top: 1px solid var(--rule);
-  }
-  .elsewhere-source {
-    display: block;
-    font: 500 10.5px/1.5 var(--font-label);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink-2);
-  }
-  .elsewhere a:hover {
-    text-decoration: underline;
-    text-underline-offset: 0.12em;
+  .lead:not(.has-photo) .lead-extras {
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 0;
   }
   .body::first-letter {
     initial-letter: 3;
@@ -335,9 +308,11 @@
     .lead-text::before {
       display: none;
     }
-    .body,
-    .lead:not(.has-photo) .body {
-      columns: 1;
+    .lead:not(.has-photo) .lead-text {
+      display: block;
+    }
+    .lead:not(.has-photo) .lead-extras {
+      margin-top: 16px;
     }
   }
   @media (min-width: 860px) and (max-width: 1279px) {
@@ -346,12 +321,6 @@
     }
     .lead-text {
       grid-column: 3;
-    }
-    .body {
-      columns: 1;
-    }
-    .lead:not(.has-photo) .body {
-      columns: 2;
     }
   }
 </style>

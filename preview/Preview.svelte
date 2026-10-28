@@ -26,6 +26,8 @@
     lastVisitAt: state === 'firstrun' ? undefined : fx.lastVisitAt,
     now: fx.NOW,
     online: state !== 'offline',
+    weather: fx.weather,
+    market: fx.market,
   });
 
   const firstRun =

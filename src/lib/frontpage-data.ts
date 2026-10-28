@@ -2,8 +2,16 @@
 import type { DailyTabDB } from './db';
 import { editionItemIds } from './edition/compose';
 import { normalizeSettings } from './defaults';
-import { getFeeds, getLastVisitAt, getSettings, isFeedKey } from './storage';
-import type { Edition, Feed, FeedState, Item, Settings } from './types';
+import { getFeeds, getLocalState, getSettings, isFeedKey } from './storage';
+import type {
+  Edition,
+  Feed,
+  FeedState,
+  Item,
+  MarketReport,
+  Settings,
+  WeatherReport,
+} from './types';
 
 export interface Snapshot {
   edition: Edition | null;
@@ -13,6 +21,21 @@ export interface Snapshot {
   settings: Settings;
   /** The previous visit, used for "new since"; this visit is recorded when the page is left. */
   lastVisitAt: number | undefined;
+  /** Cached by the background (lib/extras); shown only if they match current settings. */
+  weather: WeatherReport | null;
+  market: MarketReport | null;
+}
+
+/** Pull the storage.local values the front page uses, tolerating anything malformed. */
+export function localExtras(local: Record<string, unknown>) {
+  const lastVisitAt = local.lastVisitAt;
+  const weather = local.weather as WeatherReport | undefined;
+  const market = local.market as MarketReport | undefined;
+  return {
+    lastVisitAt: typeof lastVisitAt === 'number' ? lastVisitAt : undefined,
+    weather: weather && typeof weather.temp === 'number' ? weather : null,
+    market: market && typeof market.price === 'number' ? market : null,
+  };
 }
 
 /** What public/prefetch.js leaves on globalThis.__dailyTabPrefetch. */
@@ -29,14 +52,13 @@ export function snapshotFromPrefetch(raw: PrefetchRaw | null): Snapshot | null {
     .filter(([k]) => isFeedKey(k))
     .map(([, v]) => v as Feed)
     .sort((a, b) => a.order - b.order);
-  const lastVisitAt = raw.local.lastVisitAt;
   return {
     edition: raw.db.edition,
     items: new Map(raw.db.items.map((i) => [i.id, i])),
     feeds,
     states: raw.db.states,
     settings: normalizeSettings(raw.sync.settings),
-    lastVisitAt: typeof lastVisitAt === 'number' ? lastVisitAt : undefined,
+    ...localExtras(raw.local),
   };
 }
 
@@ -57,15 +79,15 @@ export async function loadSnapshot(getDb: () => Promise<DailyTabDB>): Promise<Sn
   const db = await getDb();
   const editionP = db.latestEdition();
   const itemsP = editionP.then((e) => (e ? loadEditionItems(db, e) : new Map<string, Item>()));
-  const [edition, items, feeds, states, settings, lastVisitAt] = await Promise.all([
+  const [edition, items, feeds, states, settings, local] = await Promise.all([
     editionP,
     itemsP,
     getFeeds(),
     db.feedState.toArray(),
     getSettings(),
-    getLastVisitAt(),
+    getLocalState(),
   ]);
-  return { edition: edition ?? null, items, feeds, states, settings, lastVisitAt };
+  return { edition: edition ?? null, items, feeds, states, settings, ...localExtras(local) };
 }
 
 export async function loadEditionItems(
@@ -85,6 +107,7 @@ export function newStoryCount(current: Edition | null, next: Edition): number {
   const placed = [
     next.leadItemId,
     ...next.secondaryItemIds,
+    ...(next.leadColumnItemIds ?? []),
     ...next.sections.flatMap((s) => s.itemIds),
     ...next.briefItemIds,
   ];

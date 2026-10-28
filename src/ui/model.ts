@@ -1,4 +1,14 @@
-import type { Edition, Feed, FeedState, Item, PinnedLink, Settings } from '@/lib/types';
+import { describeWeather, reportMatches } from '@/lib/extras/weather';
+import type {
+  Edition,
+  Feed,
+  FeedState,
+  Item,
+  MarketReport,
+  PinnedLink,
+  Settings,
+  WeatherReport,
+} from '@/lib/types';
 import {
   anchorFor,
   ago,
@@ -24,8 +34,34 @@ export interface StoryView {
   imageUrl?: string;
   read: boolean;
   isNew: boolean;
-  /** Other feeds carrying the same story. */
-  related: { source: string; link: string; title: string }[];
+}
+
+export interface WeatherView {
+  /** "48°" */
+  temp: string;
+  /** "Cloudy" */
+  condition: string;
+  /** "H 52 · L 41" */
+  range: string;
+  place: string;
+  /** Plain sentence for assistive tech. */
+  label: string;
+}
+
+export interface MarketView {
+  name: string;
+  /** "7,737.01" */
+  price: string;
+  /** "+14.41" */
+  change: string;
+  /** "0.19%" */
+  percent: string;
+  direction: 'up' | 'down' | 'flat';
+  /** "As of 4:00 p.m. ET" or "Close, Mon Oct 26" */
+  asOf: string;
+  points: number[];
+  previousClose: number;
+  label: string;
 }
 
 /** First-run chooser: a section and the feeds that fill it. */
@@ -54,9 +90,15 @@ export interface FrontPageView {
   newCount: number;
   /** Clock time of the last visit, or null on the first visit. */
   newSince: string | null;
+  /** Right ear when a location is set; the "new since" count then moves to the folio. */
+  weather: WeatherView | null;
   sections: { name: string; anchor: string }[];
   pinned: PinnedLink[];
   lead: StoryView | null;
+  /** Headlines under the lead's text. */
+  leadColumn: StoryView[];
+  /** S&P 500 box at the foot of the lead's text column. */
+  market: MarketView | null;
   secondary: StoryView[];
   bands: BandView[];
   brief: StoryView[];
@@ -74,6 +116,87 @@ export interface FrontPageInput {
   online: boolean;
   /** Extra items per section, shown when the reader follows "More in …". */
   more?: Map<string, string[]>;
+  weather?: WeatherReport | null;
+  market?: MarketReport | null;
+}
+
+const WEATHER_MAX_AGE_MS = 6 * 60 * 60_000;
+const MARKET_MAX_AGE_MS = 4 * 24 * 60 * 60_000;
+
+export function weatherView(
+  report: WeatherReport | null | undefined,
+  settings: Settings,
+  now: number,
+): WeatherView | null {
+  const place = settings.weatherPlace;
+  if (!reportMatches(report, place, settings.units) || now - report.at > WEATHER_MAX_AGE_MS) {
+    return null;
+  }
+  const deg = (t: number) => `${Math.round(t)}°`;
+  const condition = describeWeather(report.code, report.isDay);
+  const unit = settings.units === 'c' ? 'Celsius' : 'Fahrenheit';
+  return {
+    temp: deg(report.temp),
+    condition,
+    range: `H ${deg(report.high)} · L ${deg(report.low)}`,
+    place: place!.name,
+    label: `Weather in ${place!.name}: ${Math.round(report.temp)} degrees ${unit}, ${condition.toLowerCase()}; high ${Math.round(report.high)}, low ${Math.round(report.low)}.`,
+  };
+}
+
+export function marketView(
+  report: MarketReport | null | undefined,
+  settings: Settings,
+  now: number,
+): MarketView | null {
+  if (!settings.showMarket || !report || now - report.at > MARKET_MAX_AGE_MS) return null;
+  const diff = report.price - report.previousClose;
+  const pct = report.previousClose ? (diff / report.previousClose) * 100 : 0;
+  const direction = Math.abs(diff) < 0.005 ? 'flat' : diff > 0 ? 'up' : 'down';
+  const fmt = (n: number) =>
+    n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const tz = report.timezone;
+  const day = (t: number, zone?: string) =>
+    new Date(t).toLocaleDateString('en-US', {
+      timeZone: zone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    });
+  let asOf: string;
+  try {
+    if (day(report.marketTime, tz) === day(now, tz)) {
+      const time = new Date(report.marketTime)
+        .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz })
+        .replace(' AM', ' a.m.')
+        .replace(' PM', ' p.m.');
+      asOf = `As of ${time}${tz === 'America/New_York' ? ' ET' : ''}`;
+    } else {
+      const date = new Date(report.marketTime).toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        timeZone: tz,
+      });
+      asOf = `Close, ${date}`;
+    }
+  } catch {
+    asOf = '';
+  }
+
+  const word = direction === 'up' ? 'up' : direction === 'down' ? 'down' : 'unchanged';
+  return {
+    name: 'S&P 500',
+    price: fmt(report.price),
+    change: `${diff >= 0 ? '+' : '−'}${fmt(Math.abs(diff))}`,
+    percent: `${Math.abs(pct).toFixed(2)}%`,
+    direction,
+    asOf,
+    points: report.points,
+    previousClose: report.previousClose,
+    label: `S&P 500 ${fmt(report.price)}, ${word} ${fmt(Math.abs(diff))} points or ${Math.abs(pct).toFixed(2)} percent. ${asOf}.`,
+  };
 }
 
 export function buildFrontPage(input: FrontPageInput): FrontPageView {
@@ -97,7 +220,6 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
       body,
       read: !!item.readAt,
       isNew: input.lastVisitAt !== undefined && item.fetchedAt > input.lastVisitAt,
-      related: [],
     };
     if (item.imageUrl) view.imageUrl = item.imageUrl;
     return view;
@@ -109,10 +231,8 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
   if (edition) {
     lead = story(edition.leadItemId, 260);
     if (lead) {
-      const related = stories(edition.leadRelatedItemIds, 0);
-      lead.related = related.map((r) => ({ source: r.source, link: r.link, title: r.title }));
-      // A one-sentence summary leaves the lead's columns empty; borrow the fullest
-      // summary from the same story elsewhere.
+      // A one-sentence summary leaves the lead's text empty; borrow the fullest summary
+      // of the same story from another feed.
       if (!lead.body) {
         const fuller = edition.leadRelatedItemIds
           .map((id) => (items.get(id)?.summary ?? '').replace(/\s*\n\s*/g, ' '))
@@ -123,6 +243,7 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
   }
 
   const secondary = edition ? stories(edition.secondaryItemIds, 170) : [];
+  const leadColumn = edition ? stories(edition.leadColumnItemIds ?? [], 0) : [];
   const bands: BandView[] = (edition?.sections ?? []).map((s) => ({
     category: s.category,
     anchor: anchorFor(s.category),
@@ -131,9 +252,13 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
   }));
   const brief = edition ? stories(edition.briefItemIds, 0) : [];
 
-  const all = [lead, ...secondary, ...bands.flatMap((b) => b.stories), ...brief].filter(
-    (s): s is StoryView => s !== null,
-  );
+  const all = [
+    lead,
+    ...secondary,
+    ...leadColumn,
+    ...bands.flatMap((b) => b.stories),
+    ...brief,
+  ].filter((s): s is StoryView => s !== null);
 
   let updatedLabel: string;
   if (!edition) updatedLabel = input.online ? 'First edition to follow' : 'Offline';
@@ -150,9 +275,12 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
     offline: !input.online,
     newCount: all.filter((s) => s.isNew).length,
     newSince: input.lastVisitAt ? clock(input.lastVisitAt) : null,
+    weather: weatherView(input.weather, settings, now),
     sections: bands.map((b) => ({ name: b.category, anchor: b.anchor })),
     pinned: settings.pinnedLinks,
     lead,
+    leadColumn,
+    market: edition ? marketView(input.market, settings, now) : null,
     secondary,
     bands,
     brief,

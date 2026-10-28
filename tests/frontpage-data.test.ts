@@ -65,6 +65,7 @@ describe('loadEditionItems', () => {
     expect(map.size).toBe(
       1 +
         e.secondaryItemIds.length +
+        (e.leadColumnItemIds ?? []).length +
         e.sections.flatMap((s) => s.itemIds).length +
         e.briefItemIds.length -
         1,

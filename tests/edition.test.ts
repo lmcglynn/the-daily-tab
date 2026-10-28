@@ -172,7 +172,10 @@ describe('composeEdition', () => {
     })!;
     expect(e.sections.map((s) => s.category)).toEqual(['World', 'Tech', 'Science']);
     for (const s of e.sections) expect(s.itemIds.length).toBeLessThanOrEqual(4);
-    expect(e.sections[0]!.itemIds).toEqual(['w0', 'w1', 'w2', 'w3']);
+    // Bands get the newest stories left after the lead, secondary and lead column.
+    const world = frontPageItems().filter((i) => i.feedId === ids.bbc && i.id.startsWith('w'));
+    const free = world.filter((i) => !(e.leadColumnItemIds ?? []).includes(i.id));
+    expect(e.sections[0]!.itemIds).toEqual(free.slice(0, 4).map((i) => i.id));
     expect(e.briefItemIds.length).toBeGreaterThan(0);
     expect(e.briefItemIds.length).toBeLessThanOrEqual(12);
     const all = frontPageItems();
@@ -191,10 +194,12 @@ describe('composeEdition', () => {
     const placed = [
       e.leadItemId,
       ...e.secondaryItemIds,
+      ...(e.leadColumnItemIds ?? []),
       ...e.sections.flatMap((s) => s.itemIds),
       ...e.briefItemIds,
     ];
     expect(new Set(placed).size).toBe(placed.length);
+    expect(e.leadColumnItemIds).toHaveLength(4);
     // h1 and h2 are one story: exactly one of them is placed (the newer, h2).
     expect(placed.filter((id) => id === 'h1' || id === 'h2')).toEqual(['h2']);
     expect(editionItemIds(e)).toContain('g1');
@@ -202,15 +207,35 @@ describe('composeEdition', () => {
 
   it('gives each feed a story in its band before a prolific feed takes more', () => {
     const items = [
-      ...Array.from({ length: 8 }, (_, i) =>
+      ...Array.from({ length: 14 }, (_, i) =>
         item({ id: `v${i}`, feedId: ids.verge!, publishedAt: NOW - i * 60_000 }),
       ),
+      // The lead column takes the newer Ars story for variety; the band still gets one.
       item({ id: 'ars-old', feedId: ids.ars!, publishedAt: NOW - 3 * HOUR }),
+      item({ id: 'ars-older', feedId: ids.ars!, publishedAt: NOW - 4 * HOUR }),
     ];
     const e = composeEdition({ items, feeds, sections: ['Tech'], now: NOW, previousNumber: 0 })!;
+    expect(e.leadColumnItemIds).toContain('ars-old');
     const band = e.sections.find((s) => s.category === 'Tech')!;
-    expect(band.itemIds).toContain('ars-old');
-    expect(band.itemIds.at(-1)).toBe('ars-old'); // still shown newest first
+    expect(band.itemIds).toContain('ars-older');
+    expect(band.itemIds.at(-1)).toBe('ars-older'); // still shown newest first
+  });
+
+  it('fills the lead column from feeds not yet on the page first', () => {
+    const e = composeEdition({
+      items: frontPageItems(),
+      feeds,
+      sections,
+      now: NOW,
+      previousNumber: 0,
+    })!;
+    const feedOf = new Map(frontPageItems().map((i) => [i.id, i.feedId]));
+    const column = (e.leadColumnItemIds ?? []).map((id) => feedOf.get(id));
+    const above = [e.leadItemId, ...e.secondaryItemIds].map((id) => feedOf.get(id));
+    // bbc and verge are the feeds not used above the fold; each gets a slot first.
+    expect(column).toContain(ids.bbc);
+    expect(column).toContain(ids.verge);
+    expect(above).not.toContain(ids.bbc);
   });
 
   it('returns null when there is nothing to print', () => {

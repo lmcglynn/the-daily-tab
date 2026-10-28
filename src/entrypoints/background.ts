@@ -2,6 +2,8 @@ import { browser } from 'wxt/browser';
 import { getDB } from '@/lib/db';
 import { publishEdition } from '@/lib/edition/publish';
 import { refreshFeeds, type RefreshReport } from '@/lib/engine/refresh';
+import { MARKET_KEY, WEATHER_KEY, refreshExtras } from '@/lib/extras/refresh';
+import { geocode } from '@/lib/extras/weather';
 import { discoverFeeds } from '@/lib/feed/discover';
 import type { Broadcast, Request } from '@/lib/messages';
 import { STARTER_SECTIONS, starterFeeds } from '@/lib/seed';
@@ -38,11 +40,39 @@ export default defineBackground(() => {
       // Section order changes the layout but needs no fetch.
       scheduleCompose();
     }
+    if (settings && extrasKey(settings.oldValue) !== extrasKey(settings.newValue)) {
+      // New place, units or ticker toggle: fetch now rather than at the next alarm.
+      void runExtras(true);
+    }
   });
 
-  // A newly granted origin means a feed can be fetched now.
-  browser.permissions.onAdded.addListener(() => void runRefresh(false));
+  // A newly granted origin means a feed (or the weather/market source) can be fetched now.
+  browser.permissions.onAdded.addListener(() => {
+    void runRefresh(false);
+    void runExtras(true);
+  });
 });
+
+const extrasKey = (v: unknown) => {
+  const s = (v ?? {}) as { weatherPlace?: unknown; units?: unknown; showMarket?: unknown };
+  return JSON.stringify([s.weatherPlace ?? null, s.units ?? 'f', !!s.showMarket]);
+};
+
+async function runExtras(force: boolean): Promise<void> {
+  try {
+    await refreshExtras({
+      settings: await getSettings(),
+      fetch: (input, init) => fetch(input, init),
+      now: Date.now(),
+      force,
+      hasAccess: (origins) => browser.permissions.contains({ origins }),
+      read: () => browser.storage.local.get([WEATHER_KEY, MARKET_KEY]),
+      write: (patch) => browser.storage.local.set(patch),
+    });
+  } catch (e) {
+    console.warn('[daily-tab] weather/market refresh failed', e);
+  }
+}
 
 async function seed() {
   const existing = await getFeeds();
@@ -106,6 +136,8 @@ async function doRefresh(force: boolean): Promise<RefreshReport | null> {
     if (isNew && edition) {
       broadcast({ type: 'edition-updated', editionId: edition.id, number: edition.number });
     }
+    // Weather and the S&P 500 keep their own (longer) freshness windows unless forced.
+    await runExtras(force);
     console.info('[daily-tab] refresh', report, isNew ? `edition ${edition?.number}` : '');
     return report;
   } catch (e) {
@@ -123,6 +155,12 @@ async function handle(msg: Request): Promise<unknown> {
     case 'discover':
       try {
         return { feeds: await discoverFeeds(msg.url, (i, init) => fetch(i, init)) };
+      } catch (e) {
+        return { error: e instanceof Error ? e.message : String(e) };
+      }
+    case 'geocode':
+      try {
+        return { places: await geocode((i, init) => fetch(i, init), msg.query) };
       } catch (e) {
         return { error: e instanceof Error ? e.message : String(e) };
       }

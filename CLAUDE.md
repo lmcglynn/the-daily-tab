@@ -71,6 +71,13 @@ Node is installed machine-wide (`C:\Program Files\nodejs`). In the Bash tool, pr
   (`npm run size` follows static imports only). prefetch.js must never create the database.
 - Fonts: critical faces are preloaded by the `preloadFonts` plugin in `wxt.config.ts` and use
   `font-display: block`; add a new face to its regex if it appears above the fold.
+- Weather (Open-Meteo, no key) and the S&P 500 (Yahoo Finance chart endpoint, unofficial, no
+  key) live in `src/lib/extras/`. The background fetches them with each refresh (own freshness
+  windows; forced when the place, units or ticker setting changes) and caches them in
+  `chrome.storage.local` (`weather`, `market`); the new tab only reads that cache. Their host
+  access is requested from Settings like feeds; `extrasOrigins()` keeps it from being released.
+- Never hand a Svelte `$state` value straight to `chrome.storage`: a Proxy is stored as
+  `{"0": …}`. Pass plain copies (`$state.snapshot`); `normalizeSettings()` repairs on read/write.
 - The background service worker owns all network work. The new tab never fetches feeds; it reads
   the latest Edition from IndexedDB and listens for `edition-updated` messages.
 - Never render feed HTML. Summaries are reduced to plain text (≤ ~300 chars) by `lib/feed/text.ts`.

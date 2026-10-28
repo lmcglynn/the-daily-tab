@@ -3,6 +3,8 @@ import { STORY_WINDOW_MS } from './group';
 
 export const SECONDARY_COUNT = 3;
 export const BAND_SIZE = 4;
+/** Headlines under the lead story, in place of the old "story elsewhere" list. */
+export const LEAD_COLUMN_COUNT = 4;
 export const BRIEF_COUNT = 12;
 /** Front page draws from the last day and a half; quiet feeds fall back to the newest items. */
 const POOL_WINDOW_MS = 36 * 60 * 60 * 1000;
@@ -123,6 +125,23 @@ export function composeEdition(input: ComposeInput): Edition | null {
     fill(() => true);
   }
 
+  // Lead column: the next newest stories from any section, one per feed first.
+  const leadColumn: Item[] = [];
+  for (const pass of [0, 1]) {
+    for (const i of pool) {
+      if (leadColumn.length >= LEAD_COLUMN_COUNT) break;
+      if (!free(i)) continue;
+      if (
+        pass === 0 &&
+        (feedsUsed.has(i.feedId) || leadColumn.some((l) => l.feedId === i.feedId))
+      ) {
+        continue;
+      }
+      take(i);
+      leadColumn.push(i);
+    }
+  }
+
   // Section bands
   const bands = sections
     .map((category) => {
@@ -157,6 +176,7 @@ export function composeEdition(input: ComposeInput): Edition | null {
     leadItemId,
     leadRelatedItemIds: related.map((i) => i.id),
     secondaryItemIds: secondary,
+    leadColumnItemIds: leadColumn.sort(newestFirst).map((i) => i.id),
     sections: bands,
     briefItemIds,
   };
@@ -167,6 +187,7 @@ export function editionItemIds(e: Edition): string[] {
     e.leadItemId,
     ...e.leadRelatedItemIds,
     ...e.secondaryItemIds,
+    ...(e.leadColumnItemIds ?? []),
     ...e.sections.flatMap((s) => s.itemIds),
     ...e.briefItemIds,
   ];
@@ -175,6 +196,12 @@ export function editionItemIds(e: Edition): string[] {
 /** Same layout, ignoring id/number/time: no need to announce a "new edition". */
 export function sameLayout(a: Edition, b: Edition): boolean {
   const key = (e: Edition) =>
-    JSON.stringify([e.leadItemId, e.secondaryItemIds, e.sections, e.briefItemIds]);
+    JSON.stringify([
+      e.leadItemId,
+      e.secondaryItemIds,
+      e.leadColumnItemIds ?? [],
+      e.sections,
+      e.briefItemIds,
+    ]);
   return key(a) === key(b);
 }

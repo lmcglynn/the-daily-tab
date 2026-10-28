@@ -53,11 +53,50 @@ export interface Edition {
   number: number;
   composedAt: number;
   leadItemId: string;
-  /** Same-story items from other feeds ("Also: NPR, Guardian"). */
+  /** Same-story items from other feeds (not shown; they lend the lead a fuller body). */
   leadRelatedItemIds: string[];
   secondaryItemIds: string[];
+  /** Headlines under the lead's text. Absent in editions composed before it existed. */
+  leadColumnItemIds?: string[];
   sections: EditionSection[];
   briefItemIds: string[];
+}
+
+export type Units = 'f' | 'c';
+
+/** A place picked in Settings (Open-Meteo geocoding). */
+export interface WeatherPlace {
+  name: string;
+  /** "Washington, United States" */
+  region: string;
+  lat: number;
+  lon: number;
+}
+
+/** Latest weather, cached by the background in chrome.storage.local. */
+export interface WeatherReport {
+  at: number;
+  lat: number;
+  lon: number;
+  units: Units;
+  temp: number;
+  code: number;
+  isDay: boolean;
+  high: number;
+  low: number;
+}
+
+/** Latest S&P 500 quote, cached by the background in chrome.storage.local. */
+export interface MarketReport {
+  at: number;
+  price: number;
+  previousClose: number;
+  /** Exchange time of `price`. */
+  marketTime: number;
+  /** IANA zone of the exchange, for "As of 4:00 p.m. ET". */
+  timezone: string;
+  /** Intraday prices, oldest first, for the sparkline. */
+  points: number[];
 }
 
 export type Theme = 'system' | 'day' | 'night';
@@ -79,4 +118,9 @@ export interface Settings {
   installedAt: number;
   /** Section (category) order, used for the index, bands and "top section". */
   sections: string[];
+  /** Weather location for the right ear; null hides the weather. */
+  weatherPlace: WeatherPlace | null;
+  units: Units;
+  /** S&P 500 box under the lead story. */
+  showMarket: boolean;
 }

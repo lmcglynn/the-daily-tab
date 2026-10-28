@@ -6,7 +6,15 @@ import { groupStories } from '@/lib/edition/group';
 import { normalizeDate } from '@/lib/feed/normalize';
 import { starterFeeds } from '@/lib/seed';
 import { DEFAULT_SETTINGS } from '@/lib/defaults';
-import type { Edition, Feed, FeedState, Item, Settings } from '@/lib/types';
+import type {
+  Edition,
+  Feed,
+  FeedState,
+  Item,
+  MarketReport,
+  Settings,
+  WeatherReport,
+} from '@/lib/types';
 
 /** Tuesday, October 27, 2026, 9:42 a.m. local time. */
 export const NOW = new Date(2026, 9, 27, 9, 42).getTime();
@@ -267,9 +275,47 @@ export const settings: Settings = {
     { title: 'GitHub', url: 'https://github.com/' },
     { title: 'Wikipedia', url: 'https://en.wikipedia.org/' },
   ],
+  weatherPlace: {
+    name: 'Seattle',
+    region: 'Washington, United States',
+    lat: 47.6062,
+    lon: -122.3321,
+  },
+  units: 'f',
+  showMarket: true,
 };
 
 export const lastVisitAt = at(8, 10);
+
+export const weather: WeatherReport = {
+  at: NOW - 12 * 60_000,
+  lat: 47.6062,
+  lon: -122.3321,
+  units: 'f',
+  temp: 47.6,
+  code: 3,
+  isDay: true,
+  high: 52.4,
+  low: 40.6,
+};
+
+/** A morning on the S&P 500: opens soft, recovers (deterministic walk for screenshots). */
+export const market: MarketReport = (() => {
+  const points: number[] = [];
+  let v = 7722.6;
+  for (let i = 0; i < 26; i++) {
+    v += Math.sin(i / 3) * 4 + (i > 8 ? 1.6 : -2.2);
+    points.push(Math.round(v * 100) / 100);
+  }
+  return {
+    at: NOW - 3 * 60_000,
+    price: points.at(-1)!,
+    previousClose: 7722.6,
+    marketTime: NOW - 15 * 60_000,
+    timezone: 'America/New_York',
+    points,
+  };
+})();
 
 export const states: FeedState[] = feeds.map((f) =>
   f.title === 'Scientific American'
