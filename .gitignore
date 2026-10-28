@@ -2,6 +2,7 @@ node_modules/
 .output/
 .wxt/
 .preview-dist/
+screenshots/
 web-ext.config.local.ts
 *.log
 .DS_Store

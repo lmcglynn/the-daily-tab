@@ -1,0 +1,276 @@
+<script lang="ts">
+  import { SvelteSet } from 'svelte/reactivity';
+  import type { FrontPageView } from './model';
+
+  let { view }: { view: FrontPageView } = $props();
+
+  const brokenIcons = new SvelteSet<string>();
+  const host = (url: string) => {
+    try {
+      return new URL(url).origin;
+    } catch {
+      return '';
+    }
+  };
+</script>
+
+<header class="masthead">
+  <div class="top">
+    <div class="ear ear-left">
+      <span class="ear-big"
+        >{view.clock.time}<span class="meridiem">{view.clock.meridiem}</span></span
+      >
+      <span class="ear-small">{view.editionName.replace(' Edition', '')}</span>
+    </div>
+
+    <h1 class="nameplate" aria-label={view.paperName}>
+      <span aria-hidden="true">{view.paperName}</span>
+    </h1>
+
+    <div class="ear ear-right">
+      {#if view.newSince && view.newCount > 0}
+        <span class="ear-big">{view.newCount} new</span>
+        <span class="ear-small">since {view.newSince}</span>
+      {:else if view.newSince}
+        <span class="ear-big">Up to date</span>
+        <span class="ear-small">since {view.newSince}</span>
+      {:else}
+        <span class="ear-big">First issue</span>
+        <span class="ear-small">Welcome</span>
+      {/if}
+    </div>
+  </div>
+
+  <p class="folio">
+    <span>{view.dateLine}</span><span class="sep" aria-hidden="true">·</span><span
+      >{view.editionName}</span
+    ><span class="sep" aria-hidden="true">·</span><span>No. {view.issue}</span><span
+      class="sep"
+      aria-hidden="true">·</span
+    ><span class:offline={view.offline}>{view.updatedLabel}</span>
+  </p>
+
+  {#if view.sections.length || view.pinned.length}
+    <div class="under">
+      {#if view.sections.length}
+        <nav class="index" aria-label="Sections">
+          <ul>
+            {#each view.sections as s (s.anchor)}
+              <li><a href="#{s.anchor}">{s.name}</a></li>
+            {/each}
+            <li><a href="#in-brief">In Brief</a></li>
+          </ul>
+        </nav>
+      {/if}
+      {#if view.pinned.length}
+        <nav class="pinned" aria-label="Pinned links">
+          <ul>
+            {#each view.pinned as link (link.url)}
+              <li>
+                <a href={link.url} class="chip">
+                  {#if !brokenIcons.has(link.url)}
+                    <img
+                      src="{host(link.url)}/favicon.ico"
+                      alt=""
+                      width="14"
+                      height="14"
+                      referrerpolicy="no-referrer"
+                      onerror={() => brokenIcons.add(link.url)}
+                    />
+                  {:else}
+                    <span class="letter" aria-hidden="true">{link.title.slice(0, 1)}</span>
+                  {/if}
+                  {link.title}
+                </a>
+              </li>
+            {/each}
+          </ul>
+        </nav>
+      {/if}
+    </div>
+  {/if}
+</header>
+
+<style>
+  .masthead {
+    padding-top: 20px;
+  }
+  .top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 24px;
+  }
+
+  .nameplate {
+    font-family: var(--font-masthead);
+    font-weight: 400;
+    font-size: clamp(46px, 7.2vw, 108px);
+    line-height: 1;
+    padding-top: 0.04em;
+    text-align: center;
+    white-space: nowrap;
+    color: var(--ink);
+  }
+
+  .ear {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    min-width: 128px;
+    padding: 9px 14px 8px;
+    border: 1px solid var(--rule-ink);
+    font-family: var(--font-label);
+    color: var(--ink);
+  }
+  .ear-left {
+    justify-self: start;
+  }
+  .ear-right {
+    justify-self: end;
+  }
+  .ear-big {
+    font: 700 19px/1.1 var(--font-head);
+  }
+  .meridiem {
+    font: 500 10px/1 var(--font-label);
+    letter-spacing: 0.08em;
+    margin-left: 3px;
+  }
+  .ear-small {
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+
+  .folio {
+    margin-top: 14px;
+    border-top: 4px solid var(--rule-ink);
+    border-bottom: 1px solid var(--rule-ink);
+    padding: 7px 0 6px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    column-gap: 10px;
+    font: 500 11.5px/1.5 var(--font-label);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .sep {
+    color: var(--ink-2);
+  }
+
+  .under {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 24px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .index ul {
+    gap: 4px 0;
+  }
+  .index li + li::before {
+    content: '·';
+    margin: 0 12px;
+    color: var(--ink-2);
+  }
+  .index a {
+    font: 700 11.5px/1.6 var(--font-label);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .index a:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.25em;
+  }
+
+  .pinned ul {
+    gap: 6px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px 3px 6px;
+    border: 1px solid var(--rule);
+    font: 500 11.5px/1.4 var(--font-label);
+    color: var(--ink-2);
+  }
+  .chip:hover {
+    border-color: var(--rule-ink);
+    color: var(--ink);
+  }
+  .chip img {
+    filter: grayscale(1);
+    /* Dark favicons vanish on night paper; a small light plate keeps them legible. */
+    background: #f4f1ea;
+    border-radius: 2px;
+    padding: 1px;
+  }
+  .letter {
+    display: inline-grid;
+    place-items: center;
+    width: 14px;
+    height: 14px;
+    font: 700 9px/1 var(--font-label);
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  @media (max-width: 859px) {
+    .masthead {
+      padding-top: 14px;
+    }
+    .top {
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas: 'name name' 'left right';
+      row-gap: 10px;
+    }
+    .nameplate {
+      grid-area: name;
+      font-size: clamp(34px, 11.5vw, 72px);
+    }
+    .ear-left {
+      grid-area: left;
+    }
+    .ear-right {
+      grid-area: right;
+    }
+    .ear {
+      flex-direction: row;
+      align-items: baseline;
+      gap: 6px;
+      min-width: 0;
+      padding: 0;
+      border: 0;
+    }
+    .ear-big {
+      font-size: 15px;
+    }
+    .folio {
+      margin-top: 10px;
+      font-size: 10.5px;
+      column-gap: 7px;
+    }
+    .under {
+      justify-content: center;
+    }
+    .pinned {
+      display: none;
+    }
+  }
+</style>

@@ -35,18 +35,19 @@ fonts < 300 KB total · 50-feed refresh < 30 s.
 
 ## 2. Static front page on fixtures
 
-- [ ] Design tokens: paper, ink, spot, rules, type scale; day + night; grain
-- [ ] Fonts (Fontsource, Latin woff2, used weights only)
-- [ ] Masthead with ears, folio line between rules, section index, pinned link chips
-- [ ] 6/4/1-column grid with column rules and hairlines
-- [ ] Lead story (4 cols): kicker, banner headline, deck, byline, photo, 2-col justified summary, drop cap
-- [ ] Secondary stories (2 cols)
-- [ ] Section bands with jump lines; In Brief column
-- [ ] Corrections box
-- [ ] Photos: ink (grayscale) / color; fixed aspect ratios
-- [ ] States: first run, offline, read, new-since-last-visit
-- [ ] Dev preview page with fixtures (long headlines, missing photos, odd dates, 3-feed repeat)
-- [ ] **STOP: screenshots of day + night at 1440, 1024, 390**
+- [x] Design tokens: paper, ink, spot, rules, type scale; day + night; grain
+- [x] Fonts (Fontsource, Latin woff2, used weights only: 6 files, 128 KB)
+- [x] Masthead with ears, folio line between rules, section index, pinned link chips
+- [x] 6/4/1-column grid with column rules and hairlines
+- [x] Lead story (4 cols): kicker, banner headline, deck, byline, photo, 2-col justified summary, drop cap
+- [x] Secondary stories (2 cols)
+- [x] Section bands with jump lines; In Brief column
+- [x] Corrections box
+- [x] Photos: ink (grayscale) / color; fixed aspect ratios
+- [x] States: first run, offline, read, new-since-last-visit
+- [x] Dev preview page with fixtures (long headlines, missing photos, odd dates, 3-feed repeat)
+- [x] Contrast test (≥ 4.5:1, both editions, worst-case grain)
+- [ ] **STOP: screenshots of day + night at 1440, 1024, 390** (`npm run screenshots`), awaiting review
 
 ## 3. Live data
 

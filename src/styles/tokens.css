@@ -1,0 +1,74 @@
+/*
+ * Design tokens. Day edition is the default; night applies when data-theme="night", or when
+ * the system is dark and the reader hasn't forced day. Every color on the front page comes
+ * from here. The spot color is reserved for kickers, "new" dots and focus rings.
+ */
+:root {
+  color-scheme: light;
+  --paper: #f4f1ea;
+  --ink: #151515;
+  --ink-2: #3b3833; /* decks, bylines: 10.5:1 on paper */
+  --ink-muted: #625d55; /* read headlines, meta: 5.9:1 on paper */
+  --spot: var(--spot-day, #a4161a); /* 6.9:1 on paper */
+  --rule: color-mix(in srgb, var(--ink) 25%, transparent);
+  --rule-ink: var(--ink);
+  --placeholder: color-mix(in srgb, var(--ink) 9%, transparent);
+  --photo-filter: grayscale(1) contrast(1.12) brightness(1.02);
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.2 1.6'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");
+
+  --font-masthead: 'UnifrakturMaguntia', 'Old English Text MT', 'Times New Roman', serif;
+  --font-head: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-text: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-label: 'Libre Franklin', 'Segoe UI', system-ui, sans-serif;
+
+  --page-max: 1400px;
+  --page-pad: clamp(16px, 4vw, 56px);
+  --gutter: 28px;
+  --band-gap: 40px;
+  --fade: 200ms;
+}
+
+:root[data-theme='night'] {
+  color-scheme: dark;
+  --paper: #16140f;
+  --ink: #e9e4d8;
+  --ink-2: #cbc5b8;
+  --ink-muted: #9d978b;
+  --spot: var(--spot-night, #e5645e);
+  --photo-filter: grayscale(1) contrast(1.08) brightness(0.92);
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 -2.2 1.6'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='day']) {
+    color-scheme: dark;
+    --paper: #16140f;
+    --ink: #e9e4d8;
+    --ink-2: #cbc5b8;
+    --ink-muted: #9d978b;
+    --spot: var(--spot-night, #e5645e);
+    --photo-filter: grayscale(1) contrast(1.08) brightness(0.92);
+    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 -2.2 1.6'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
+  }
+}
+
+:root[data-photos='color'] {
+  --photo-filter: none;
+}
+
+@media (min-width: 1280px) {
+  :root {
+    --gutter: 32px;
+  }
+}
+@media (max-width: 859px) {
+  :root {
+    --gutter: 20px;
+    --band-gap: 28px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --fade: 0ms;
+  }
+}

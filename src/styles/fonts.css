@@ -1,0 +1,45 @@
+/* Latin-subset woff2 only, and only the weights the front page uses (~128 KB total). */
+@font-face {
+  font-family: 'UnifrakturMaguntia';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('@fontsource/unifrakturmaguntia/files/unifrakturmaguntia-latin-400-normal.woff2')
+    format('woff2');
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('@fontsource/playfair-display/files/playfair-display-latin-700-normal.woff2')
+    format('woff2');
+}
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('@fontsource/newsreader/files/newsreader-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Newsreader';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('@fontsource/newsreader/files/newsreader-latin-400-italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Libre Franklin';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('@fontsource/libre-franklin/files/libre-franklin-latin-500-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Libre Franklin';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('@fontsource/libre-franklin/files/libre-franklin-latin-700-normal.woff2') format('woff2');
+}
