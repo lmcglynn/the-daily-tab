@@ -10,6 +10,7 @@
     view,
     firstRun = null,
     newEdition = null,
+    notice = null,
     fresh = false,
     refreshing = false,
     onopen,
@@ -27,6 +28,8 @@
     firstRun?: { sections: SectionChoice[]; busy: boolean; error?: string } | null;
     /** A newer edition is waiting; shown as a button, never reflowed in. */
     newEdition?: { count: number } | null;
+    /** A brief note at the foot of the screen, e.g. "Hidden: …" with Undo. */
+    notice?: { text: string; onundo: () => void } | null;
     /** Fade the page in (opening a new edition). */
     fresh?: boolean;
     refreshing?: boolean;
@@ -211,6 +214,16 @@
     {/if}
   {/if}
 
+  <!-- Always present so screen readers announce the note when it appears. -->
+  <div class="notice-slot" role="status" aria-live="polite">
+    {#if notice}
+      <div class="notice">
+        <span class="notice-text">{notice.text}</span>
+        <button type="button" onclick={notice.onundo}>Undo</button>
+      </div>
+    {/if}
+  </div>
+
   <footer class="colophon">
     <p>
       <span class="paper-name">{view.paperName}</span>
@@ -220,7 +233,7 @@
     </p>
     <p class="keys" aria-label="Keyboard shortcuts">
       <kbd>j</kbd> <kbd>k</kbd> next / previous story · <kbd>o</kbd> open · <kbd>s</kbd> save ·
-      <kbd>r</kbd> refresh · <kbd>n</kbd> new edition
+      <kbd>h</kbd> hide · <kbd>r</kbd> refresh · <kbd>n</kbd> new edition
     </p>
   </footer>
 </div>
@@ -449,6 +462,44 @@
     border-top: 1px solid var(--rule);
     margin-top: 10px;
     padding-top: 10px;
+  }
+
+  .notice-slot {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 20px;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .notice {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    max-width: min(560px, calc(100vw - 32px));
+    padding: 10px 12px 10px 16px;
+    background: var(--ink);
+    color: var(--paper);
+    font: 500 13px/1.3 var(--font-label);
+    box-shadow: 0 2px 10px rgb(0 0 0 / 0.25);
+  }
+  .notice-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .notice button {
+    flex: none;
+    font: 700 12px/1 var(--font-label);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--paper);
+    padding: 6px 8px;
+    border: 1px solid currentColor;
   }
 
   /* Saved stories, at the foot of the page like a clipped column. */

@@ -393,6 +393,35 @@ try {
   );
   page4.close();
 
+  // Undo puts it back where it was.
+  const noticeText = await page2.eval(`document.querySelector('.notice-text')?.textContent ?? ''`);
+  await page2.eval(`document.querySelector('.notice button').click()`);
+  await sleep(300);
+  const bandsUndone = await bandState();
+  const hiddenAfterUndo = (
+    (await page2.eval(`chrome.storage.local.get('hidden')`)).hidden ?? []
+  ).map((h) => h.id);
+  check(
+    /^Hidden: “/.test(noticeText) &&
+      bandsUndone[0][0].id === victim.id &&
+      !hiddenAfterUndo.includes(victim.id),
+    `Undo ("${noticeText}") puts it back in its spot`,
+  );
+
+  // h hides the focused story, with the same Undo.
+  await page2.eval(`document.querySelector('.band .band-cell .headline a').focus()`);
+  await press(page2, 'h');
+  let afterH = bandsUndone;
+  for (let i = 0; i < 20 && afterH[0][0].id === victim.id; i++) {
+    await sleep(150);
+    afterH = await bandState();
+  }
+  const noticeShown = await page2.eval(`!!document.querySelector('.notice')`);
+  check(afterH[0][0].id !== victim.id && noticeShown, 'h hides the focused story (Undo offered)');
+  await page2.eval(`document.querySelector('.notice button').click()`);
+  await sleep(300);
+  check((await bandState())[0][0].id === victim.id, 'and Undo brings it back');
+
   step('keyboard: o opens the current story');
   await page2.send('Page.bringToFront');
   await press(page2, 'j');

@@ -93,8 +93,8 @@ installed the extension.
 ## Keyboard shortcuts
 
 On the front page: **j** / **k** move between stories, **o** or **Enter** opens one, **s** saves it
-to your Clippings (or removes it), **n** shows a new edition when one is waiting, and **r**
-refreshes now. If the address bar has focus on a new tab, click the page first.
+to your Clippings (or removes it), **h** hides it, **n** shows a new edition when one is waiting,
+and **r** refreshes now. If the address bar has focus on a new tab, click the page first.
 
 ## Clippings
 
@@ -105,7 +105,8 @@ there after the story itself drops off the paper. They're kept on this computer 
 
 ## Hiding a story
 
-Right-click a story's headline or photo and choose **Hide this story** to take it off the page.
+Right-click a story's headline or photo and choose **Hide this story** (or press **h**) to take it
+off the page; an **Undo** button appears at the foot of the screen for a few seconds.
 Its spot is filled with another story you haven't seen (nothing else moves), or simply closes up
 if there isn't one, and it stays out of later editions. To bring hidden stories back, use **Show
 them again** in Settings, under Muted topics.

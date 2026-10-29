@@ -25,6 +25,7 @@
   import { getFeeds, isFeedKey, removeFeed, saveSettings, setLastVisitAt } from '@/lib/storage';
   import type { Edition, Item } from '@/lib/types';
   import FrontPage from '@/ui/FrontPage.svelte';
+  import { shorten } from '@/ui/format';
   import { keyAction, step } from '@/ui/keys';
   import { buildFrontPage } from '@/ui/model';
 
@@ -236,9 +237,12 @@
     const item = snap.items.get(id);
     if (!item) return;
     const now = Date.now();
+    // What Undo puts back.
+    const before = { edition: snap.edition, more };
     const hidden = hideItem(snap.hidden, item, now);
     snap = { ...snap, hidden };
     void browser.storage.local.set({ [HIDDEN_KEY]: hidden });
+    offerUndo(`Hidden: “${shorten(item.title, 60)}”`, () => void unhide(id, before));
 
     // In an expanded "More in …" list: just drop it.
     for (const [category, ids] of more) {
@@ -274,6 +278,36 @@
     };
     // The next tab opens on the same page, without the hidden story.
     await db.editions.put(edition);
+  }
+
+  async function unhide(id: string, before: { edition: Edition; more: Map<string, string[]> }) {
+    if (!snap) return;
+    const hidden = snap.hidden.filter((h) => h.id !== id);
+    snap = { ...snap, hidden };
+    void browser.storage.local.set({ [HIDDEN_KEY]: hidden });
+    // Still the same edition: put the story back where it was. (A newer edition has its own
+    // layout; the story returns there at the next composition.)
+    if (snap.edition?.id === before.edition.id) {
+      snap = { ...snap, edition: before.edition };
+      more = before.more;
+      await (await dbReady).editions.put(before.edition);
+    }
+  }
+
+  // A short-lived note at the foot of the screen with an Undo button.
+  let notice = $state.raw<{ text: string; onundo: () => void } | null>(null);
+  let noticeTimer: ReturnType<typeof setTimeout> | undefined;
+  function offerUndo(text: string, undo: () => void) {
+    clearTimeout(noticeTimer);
+    notice = {
+      text,
+      onundo: () => {
+        clearTimeout(noticeTimer);
+        notice = null;
+        undo();
+      },
+    };
+    noticeTimer = setTimeout(() => (notice = null), 8000);
   }
 
   async function toggleMore(category: string) {
@@ -391,13 +425,16 @@
       link.closest('article')?.scrollIntoView({ block: 'nearest' });
     } else if (action === 'open') {
       (links[current] ?? links[0])?.click();
-    } else if (action === 'save') {
+    } else if (action === 'save' || action === 'hide') {
       // The focused story (Clippings included), else the current one.
       const article =
         document.activeElement?.closest<HTMLElement>('article[data-story]') ??
         links[current]?.closest<HTMLElement>('article');
       const id = article?.dataset.story;
-      if (id) toggleSave(id);
+      if (!id) return;
+      if (action === 'save') toggleSave(id);
+      // Clippings are removed with s; only stories on the page can be hidden.
+      else if (!article.closest('#clippings')) void hideStory(id);
     } else if (action === 'refresh') {
       void refresh();
     } else if (action === 'new') {
@@ -450,6 +487,7 @@
     {fresh}
     {refreshing}
     newEdition={pending ? { count: pending.count } : null}
+    {notice}
     onopen={open}
     onsave={toggleSave}
     onmore={toggleMore}

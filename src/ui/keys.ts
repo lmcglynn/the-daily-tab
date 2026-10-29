@@ -1,7 +1,7 @@
 // Front-page keyboard shortcuts. Edge leaves focus in the address bar on a new tab, so these work
 // once the page has focus (a click, or Tab from the address bar); nothing relies on autofocus.
 
-export type KeyAction = 'next' | 'prev' | 'open' | 'save' | 'refresh' | 'new';
+export type KeyAction = 'next' | 'prev' | 'open' | 'save' | 'hide' | 'refresh' | 'new';
 
 interface KeyLike {
   key: string;
@@ -33,6 +33,8 @@ export function keyAction(e: KeyLike): KeyAction | null {
       return isControl(target) ? null : 'open';
     case 's':
       return 'save';
+    case 'h':
+      return 'hide';
     case 'r':
       return 'refresh';
     case 'n':
