@@ -157,6 +157,27 @@ describe('composeEdition', () => {
     expect(e.leadRelatedItemIds).toEqual(['h1']);
   });
 
+  it('counts outlets, not feeds: one paper’s article in two of its feeds is not big news', () => {
+    const nytUs = { ...feed('nyt-us', 'World', 6), title: 'New York Times' };
+    const nytWorld = { ...feed('nyt-world', 'World', 7), title: 'New York Times' };
+    const items = [
+      // Geneva ungrouped, leaving the Ars/Verge story (two outlets) and the NYT pair.
+      ...frontPageItems().map((i) => (i.id.startsWith('g') ? { ...i, storyId: undefined } : i)),
+      item({ id: 'n1', feedId: nytUs.id, storyId: 'n1', publishedAt: NOW - HOUR / 2 }),
+      item({ id: 'n2', feedId: nytWorld.id, storyId: 'n1', publishedAt: NOW - HOUR / 2 }),
+    ];
+    const e = composeEdition({
+      items,
+      feeds: [...feeds, nytUs, nytWorld],
+      sections,
+      now: NOW,
+      previousNumber: 0,
+    })!;
+    expect(e.leadItemId).toBe('h2');
+    const placed = editionItemIds(e).filter((id) => id === 'n1' || id === 'n2');
+    expect(placed).toHaveLength(1); // the same article, printed once
+  });
+
   it('falls back to the newest photo story from the top section', () => {
     const items = frontPageItems().map(({ storyId: _s, ...i }) => i);
     const e = composeEdition({ items, feeds, sections, now: NOW, previousNumber: 0 })!;
