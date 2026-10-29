@@ -112,9 +112,10 @@ export interface RaceView {
   race: string;
   /** "Final · Sun", "Final · Oct 25". */
   status: string;
+  /** Family names: "Antonelli", with "Mercedes". */
   podium: { position: number; driver: string; constructor: string }[];
-  /** "Next: Sun, 1:00 p.m. · Mexico City, Mexico" */
-  next: string;
+  /** Beside the podium under a "Next:" label, a line each: "Sun, Nov 1", "1:00 p.m.", "Mexico City". */
+  next: string[];
   live: false;
   offseason: boolean;
   label: string;
@@ -282,13 +283,20 @@ function sides(g: Game, teamId: string) {
   return { mine, other, opponent: `${where} ${other.name}` };
 }
 
-/** "Mexico City, Mexico" */
-const racePlace = (r: Race) => [r.city, r.country].filter(Boolean).join(', ') || r.circuit;
-/** "A. Antonelli" */
-const shortDriver = (name: string) => {
-  const parts = name.split(' ');
-  return parts.length > 1 ? `${parts[0]![0]}. ${parts.at(-1)}` : name;
-};
+/** "Mexico City": the city names the Grand Prix; the country is said aloud only. */
+const racePlace = (r: Race) => r.city || r.country || r.circuit;
+
+/** "Sun, Nov 1" this week, "Tomorrow", "Today"; further off, "Nov 8". */
+function raceDay(t: number, now: number): string {
+  const days = Math.round((dayStart(t) - dayStart(now)) / 86_400_000);
+  const date = new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Tomorrow';
+  if (days > 1 && days < 7) {
+    return `${new Date(t).toLocaleDateString('en-US', { weekday: 'short' })}, ${date}`;
+  }
+  return date;
+}
 
 export function raceView(report: RaceReport, now: number): RaceView {
   const last = report.lastRace;
@@ -298,10 +306,13 @@ export function raceView(report: RaceReport, now: number): RaceView {
   const status = last ? (on ? `Final · ${on}` : 'Final') : '';
   const podium = (last?.podium ?? []).map((p) => ({
     position: p.position,
-    driver: shortDriver(p.driver),
+    driver: p.family || p.driver,
     constructor: p.constructor,
   }));
-  const nextText = next ? `Next: ${gameWhen(next.date, now)} · ${racePlace(next)}` : '';
+  const nextLines = next ? [raceDay(next.date, now), time12(next.date), racePlace(next)] : [];
+  const nextText = next
+    ? `Next: ${next.name}, ${raceDay(next.date, now)} at ${time12(next.date)}, ${[next.city, next.country].filter(Boolean).join(', ')}`
+    : '';
   const spoken = last
     ? `Formula 1, ${last.name}: ${last.podium.map((p) => `${p.position}, ${p.driver}, ${p.constructor}`).join('; ')}.`
     : 'Formula 1: no races yet this season.';
@@ -313,7 +324,7 @@ export function raceView(report: RaceReport, now: number): RaceView {
     race: `F1 · ${last ? last.name.replace(/\s*Grand Prix$/, ' GP') : 'No races yet'}`,
     status,
     podium,
-    next: nextText,
+    next: nextLines,
     live: false,
     offseason: !next || next.date - now > OFFSEASON_AFTER_MS,
     label: nextText ? `${spoken} ${nextText}.` : spoken,

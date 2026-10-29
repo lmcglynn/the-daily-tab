@@ -59,10 +59,6 @@
     e.preventDefault();
   }
 
-  // Formula 1's podium takes three lines: with it in the carousel, every entry gets its height,
-  // so cycling never changes the box's size.
-  const tall = $derived(scores.some((s) => s.kind === 'race'));
-
   const neighbour = (step: number) => scores[(index + step + scores.length) % scores.length]!.team;
 </script>
 
@@ -87,22 +83,30 @@
     {/if}
   </div>
 
-  <div class="game" class:tall aria-live={many ? 'polite' : undefined}>
+  <div class="game" aria-live={many ? 'polite' : undefined}>
     <span class="visually-hidden">{game.label}</span>
     {#if game.kind === 'race'}
       <div class="row" aria-hidden="true">
         <span class="team">{game.race}</span>
         <span class="status">{game.status}</span>
       </div>
-      <ol class="podium" aria-hidden="true">
-        {#each game.podium as p (p.position)}
-          <li>
-            <span class="place">{p.position}</span><span class="driver">{p.driver}</span><span
-              class="constructor">{p.constructor}</span
-            >
-          </li>
-        {/each}
-      </ol>
+      <!-- Podium and next race side by side, in the height of a team's two lower rows. -->
+      <div class="race-body" aria-hidden="true">
+        <ol class="podium">
+          {#each game.podium as p (p.position)}
+            <li>
+              <span class="place">{p.position}</span><span class="driver">{p.driver}</span><span
+                class="constructor"><span class="dot-sep">·</span>{p.constructor}</span
+              >
+            </li>
+          {/each}
+        </ol>
+        <p class="race-next">
+          {#each game.next as line, i (i)}<span
+              >{#if i === 0}<span class="next-label">Next:&#32;</span>{/if}{line}</span
+            >{/each}
+        </p>
+      </div>
     {:else}
       <div class="row" aria-hidden="true">
         <span class="team">{game.team}</span>
@@ -116,8 +120,10 @@
         <span class="status">{game.status}</span>
       </div>
     {/if}
-    <!-- Always present, so every team is the same height and cycling never reflows. -->
-    <p class="next" aria-hidden="true">{game.next || ' '}</p>
+    {#if game.kind === 'game'}
+      <!-- Always present, so every team is the same height and cycling never reflows. -->
+      <p class="next" aria-hidden="true">{game.next || ' '}</p>
+    {/if}
   </div>
 </section>
 
@@ -236,26 +242,25 @@
     color: var(--ink-2);
     white-space: nowrap;
   }
-  .game.tall {
+  /* A team's score row (34) and next line (4 + 15.2) is 53.2px: the podium's three 17px lines
+     and a 2px gap fill the same height, so a race and a team are the same size. */
+  .race-body {
     display: flex;
-    flex-direction: column;
-    /* A race's rows: title 22.8 + podium 3 × 17 + 2 + next 4 + 15.2. */
-    min-height: 95px;
-  }
-  .game.tall .next {
-    margin-top: auto;
-    padding-top: 4px;
+    justify-content: space-between;
+    gap: 12px;
+    height: 53.2px;
+    padding-top: 2px;
   }
   .podium {
     list-style: none;
-    margin: 2px 0 0;
+    margin: 0;
     padding: 0;
+    min-width: 0;
   }
   .podium li {
     display: flex;
     align-items: baseline;
-    gap: 8px;
-    /* Exactly 17px a line, whatever the mix of faces: the box's height is fixed above. */
+    /* Exactly 17px a line, whatever the mix of faces. */
     height: 17px;
     font-size: 12.5px;
     line-height: 17px;
@@ -263,19 +268,68 @@
   }
   .place {
     flex: none;
-    width: 1.1em;
+    width: 1.3em;
     font: 700 14px/17px var(--font-head);
     font-variant-numeric: lining-nums tabular-nums;
   }
   .driver {
     font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   .constructor {
-    margin-left: auto;
-    flex: none;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     color: var(--ink-2);
+  }
+  .dot-sep {
+    margin: 0 6px;
+  }
+  /* A narrow box (a mid-width window) keeps the podium whole: the next race drops its "Next:"
+     label and its capitals, and is the one to shorten if anything must. */
+  .scores {
+    container-type: inline-size;
+  }
+  @container (max-width: 300px) {
+    .next-label {
+      display: none;
+    }
+    .race-body {
+      gap: 6px;
+    }
+    .podium .place {
+      width: 1.05em;
+    }
+    .dot-sep {
+      margin: 0 3px;
+    }
+    .podium {
+      flex: none;
+    }
+    .race-body > .race-next {
+      flex: 0 1 auto;
+      min-width: 0;
+      font-size: 11px;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .race-next > span {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+  .race-next {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    margin: 0;
+    font-size: 10.5px;
+    line-height: 17px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    white-space: nowrap;
   }
   .next {
     margin-top: 4px;

@@ -113,14 +113,17 @@ describe('Formula 1 in the scores box', () => {
       race: 'F1 · United States GP',
       status: 'Final · Sun',
       podium: [
-        { position: 1, driver: 'A. Antonelli', constructor: 'Mercedes' },
-        { position: 2, driver: 'C. Leclerc', constructor: 'Ferrari' },
-        { position: 3, driver: 'M. Verstappen', constructor: 'Red Bull' },
+        { position: 1, driver: 'Antonelli', constructor: 'Mercedes' },
+        { position: 2, driver: 'Leclerc', constructor: 'Ferrari' },
+        { position: 3, driver: 'Verstappen', constructor: 'Red Bull' },
       ],
-      next: 'Next: Sun, 1:00 p.m. · Mexico City, Mexico',
+      next: ['Sun, Nov 1', '1:00 p.m.', 'Mexico City'],
       live: false,
       offseason: false,
     });
+    expect(raceView(report(), NOW).label).toMatch(
+      /Next: Mexico City Grand Prix, Sun, Nov 1 at 1:00 p\.m\., Mexico City, Mexico.$/,
+    );
     expect(raceView(report(), NOW).label).toMatch(
       /^Formula 1, United States Grand Prix: 1, Andrea Kimi Antonelli, Mercedes; 2, Charles Leclerc/,
     );
