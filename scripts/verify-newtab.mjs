@@ -422,6 +422,71 @@ try {
   await sleep(300);
   check((await bandState())[0][0].id === victim.id, 'and Undo brings it back');
 
+  step('search: / opens it, a word from the lead finds the lead, Esc closes it');
+  await page2.send('Page.bringToFront');
+  await page2.eval(`document.activeElement?.blur()`);
+  const leadTitle = await page2.eval(
+    `document.querySelector('.slot-lead .headline a').textContent`,
+  );
+  const searchLeadId = await page2.eval(
+    `document.querySelector('.slot-lead article').dataset.story`,
+  );
+  const word = leadTitle
+    .split(/[^A-Za-z]+/)
+    .filter((w) => w.length >= 5)
+    .sort((a, b) => b.length - a.length)[0];
+  await page2.send('Input.dispatchKeyEvent', {
+    type: 'keyDown',
+    key: '/',
+    code: 'Slash',
+    windowsVirtualKeyCode: 191,
+    text: '/',
+  });
+  await page2.send('Input.dispatchKeyEvent', {
+    type: 'keyUp',
+    key: '/',
+    windowsVirtualKeyCode: 191,
+  });
+  let opened = false;
+  for (let i = 0; i < 20 && !opened; i++) {
+    await sleep(100);
+    opened = await page2.eval(`document.querySelector('dialog.search')?.open === true`);
+  }
+  const focused = await page2.eval(`document.activeElement?.id`);
+  const typedSlash = await page2.eval(`document.querySelector('#search-input')?.value`);
+  check(
+    opened && focused === 'search-input' && typedSlash === '',
+    '/ opens search with the box focused',
+  );
+  await page2.send('Input.insertText', { text: word.slice(0, 4).toLowerCase() });
+  let results = [];
+  for (let i = 0; i < 20 && !results.includes(searchLeadId); i++) {
+    await sleep(100);
+    results = await page2.eval(
+      `[...document.querySelectorAll('dialog.search article[data-story]')].map((a) => a.dataset.story)`,
+    );
+  }
+  const count = await page2.eval(
+    `document.querySelector('dialog.search .count')?.textContent.trim()`,
+  );
+  check(
+    results.includes(searchLeadId),
+    `"${word.slice(0, 4).toLowerCase()}" finds the lead ("${leadTitle.slice(0, 50)}…"): ${count}`,
+  );
+  await page2.send('Input.dispatchKeyEvent', {
+    type: 'keyDown',
+    key: 'Escape',
+    code: 'Escape',
+    windowsVirtualKeyCode: 27,
+  });
+  await page2.send('Input.dispatchKeyEvent', {
+    type: 'keyUp',
+    key: 'Escape',
+    windowsVirtualKeyCode: 27,
+  });
+  await sleep(200);
+  check(await page2.eval(`!document.querySelector('dialog.search')`), 'Esc closes it');
+
   step('keyboard: o opens the current story');
   await page2.send('Page.bringToFront');
   await press(page2, 'j');

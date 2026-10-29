@@ -399,24 +399,11 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
   const story = (id: string, deckMax: number): StoryView | null => {
     const item = items.get(id);
     if (!item) return null;
-    const feed = feedById.get(item.feedId);
-    const { deck, body } = splitDeck(item.summary);
-    const view: StoryView = {
-      id: item.id,
-      title: item.title,
-      link: item.link,
-      source: feed?.title ?? '',
-      kicker: feed?.category ?? '',
-      ago: ago(item.publishedAt, now),
-      datetime: new Date(item.publishedAt).toISOString(),
-      deck: deckMax ? shorten(deck, deckMax) : '',
-      body,
-      read: !!item.readAt,
-      isNew: input.lastVisitAt !== undefined && item.fetchedAt > input.lastVisitAt,
-      saved: savedIds.has(item.id),
-    };
-    if (item.imageUrl) view.imageUrl = item.imageUrl;
-    return view;
+    return itemView(item, feedById.get(item.feedId), now, {
+      deckMax,
+      lastVisitAt: input.lastVisitAt,
+      saved: savedIds,
+    });
   };
   const stories = (ids: string[], deckMax: number) =>
     ids.map((id) => story(id, deckMax)).filter((s): s is StoryView => s !== null);
@@ -501,6 +488,32 @@ export function isDeveloping(group: Pick<Item, 'publishedAt'>[], now: number): b
   if (group.length < 2) return false;
   const [, ...followers] = [...group].sort((a, b) => a.publishedAt - b.publishedAt);
   return followers.some((i) => i.publishedAt <= now && now - i.publishedAt <= DEVELOPING_WINDOW_MS);
+}
+
+/** A stored story as the page shows it (also used for search results). */
+export function itemView(
+  item: Item,
+  feed: Feed | undefined,
+  now: number,
+  opts: { deckMax?: number; lastVisitAt?: number | undefined; saved?: Set<string> } = {},
+): StoryView {
+  const { deck, body } = splitDeck(item.summary);
+  const view: StoryView = {
+    id: item.id,
+    title: item.title,
+    link: item.link,
+    source: feed?.title ?? '',
+    kicker: feed?.category ?? '',
+    ago: ago(item.publishedAt, now),
+    datetime: new Date(item.publishedAt).toISOString(),
+    deck: opts.deckMax ? shorten(deck, opts.deckMax) : '',
+    body,
+    read: !!item.readAt,
+    isNew: opts.lastVisitAt !== undefined && item.fetchedAt > opts.lastVisitAt,
+    saved: !!opts.saved?.has(item.id),
+  };
+  if (item.imageUrl) view.imageUrl = item.imageUrl;
+  return view;
 }
 
 function clippingView(c: Clipping, now: number): StoryView {

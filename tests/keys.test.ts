@@ -32,6 +32,7 @@ describe('keyAction', () => {
     expect(press('o')).toBe('open');
     expect(press('s')).toBe('save');
     expect(press('h')).toBe('hide');
+    expect(press('/')).toBe('search');
     expect(press('r')).toBe('refresh');
     expect(press('n')).toBe('new');
     expect(press('x')).toBeNull();

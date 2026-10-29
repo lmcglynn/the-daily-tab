@@ -19,6 +19,7 @@
     onshownew,
     onstart,
     onrefresh,
+    onsearch,
     settingsUrl = null,
   }: {
     view: FrontPageView;
@@ -40,6 +41,8 @@
     onshownew?: () => void;
     onstart?: (sections: string[]) => void;
     onrefresh?: () => void;
+    /** Open search (absent in the dev preview). */
+    onsearch?: () => void;
   } = $props();
 
   const widths = [96, 88, 92, 70, 84, 40];
@@ -48,7 +51,12 @@
 <a class="skip" href="#front">Skip to the stories</a>
 
 <div class="page" class:fresh>
-  <Masthead {view} {refreshing} onrefresh={firstRun ? undefined : onrefresh} />
+  <Masthead
+    {view}
+    {refreshing}
+    onrefresh={firstRun ? undefined : onrefresh}
+    onsearch={firstRun ? undefined : onsearch}
+  />
 
   <!-- Always present so screen readers announce the button when it appears. -->
   <div class="new-edition-slot" role="status" aria-live="polite">
@@ -233,7 +241,7 @@
     </p>
     <p class="keys" aria-label="Keyboard shortcuts">
       <kbd>j</kbd> <kbd>k</kbd> next / previous story · <kbd>o</kbd> open · <kbd>s</kbd> save ·
-      <kbd>h</kbd> hide · <kbd>r</kbd> refresh · <kbd>n</kbd> new edition
+      <kbd>h</kbd> hide · <kbd>r</kbd> refresh · <kbd>n</kbd> new edition · <kbd>/</kbd> search
     </p>
   </footer>
 </div>

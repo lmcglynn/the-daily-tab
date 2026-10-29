@@ -1,10 +1,9 @@
+import { foldText as fold } from './search';
 import type { Item } from './types';
 
 export const MAX_MUTED = 50;
 export const MAX_MUTED_LENGTH = 60;
 
-/** Lowercase without accents, so "Pokémon" and "pokemon" match. */
-const fold = (s: string) => s.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Trimmed, single-spaced, no duplicates (ignoring case and accents), at most 50. */

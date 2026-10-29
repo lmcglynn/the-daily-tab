@@ -93,8 +93,16 @@ installed the extension.
 ## Keyboard shortcuts
 
 On the front page: **j** / **k** move between stories, **o** or **Enter** opens one, **s** saves it
-to your Clippings (or removes it), **h** hides it, **n** shows a new edition when one is waiting,
-and **r** refreshes now. If the address bar has focus on a new tab, click the page first.
+to your Clippings (or removes it), **h** hides it, **/** searches, **n** shows a new edition when
+one is waiting, and **r** refreshes now. If the address bar has focus on a new tab, click the page
+first.
+
+## Search
+
+Press **/** or click **Search** at the end of the section index to search the last month of stories
+kept on your computer. Every word you type must appear in a story's headline or summary (the
+start of a word is enough: "ukr" finds "Ukraine"); stories with every word in the headline come
+first, then the newest. **Esc** closes it.
 
 ## Clippings
 

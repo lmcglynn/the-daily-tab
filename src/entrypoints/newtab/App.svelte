@@ -24,10 +24,12 @@
   import { originPatterns } from '@/lib/seed';
   import { getFeeds, isFeedKey, removeFeed, saveSettings, setLastVisitAt } from '@/lib/storage';
   import type { Edition, Item } from '@/lib/types';
+  import { searchIndex, searchStories, type SearchEntry } from '@/lib/search';
   import FrontPage from '@/ui/FrontPage.svelte';
+  import Search from '@/ui/Search.svelte';
   import { shorten } from '@/ui/format';
   import { keyAction, step } from '@/ui/keys';
-  import { buildFrontPage } from '@/ui/model';
+  import { buildFrontPage, itemView } from '@/ui/model';
 
   // Dexie isn't needed for the first paint (public/prefetch.js reads the cache), so it loads
   // after; everything that writes or reads more waits for it.
@@ -167,7 +169,7 @@
 
   function open(id: string, e: MouseEvent) {
     if (!snap) return;
-    const item = snap.items.get(id);
+    const item = snap.items.get(id) ?? searchItem(id);
     if (!item) return;
     const t = Date.now();
     const write = dbReady.then((db) => markRead(db, id, t));
@@ -185,7 +187,7 @@
 
   function toggleSave(id: string) {
     if (!snap) return;
-    const item = snap.items.get(id);
+    const item = snap.items.get(id) ?? searchItem(id);
     const saved = snap.clippings.find((c) => c.id === id);
     const clip =
       saved ??
@@ -310,6 +312,37 @@
     noticeTimer = setTimeout(() => (notice = null), 8000);
   }
 
+  // Search ----------------------------------------------------------------------------------
+
+  // Every stored story, loaded once when search opens (a few thousand at most).
+  let searching = $state(false);
+  let searchQuery = $state('');
+  let searchEntries = $state.raw<SearchEntry[] | null>(null);
+  const searchItem = (id: string) => searchEntries?.find((e) => e.item.id === id)?.item;
+
+  const searchResult = $derived(
+    searchEntries ? searchStories(searchEntries, searchQuery) : { items: [], total: 0 },
+  );
+  const searchViews = $derived.by(() => {
+    if (!snap) return [];
+    const feedById = new Map(snap.feeds.map((f) => [f.id, f]));
+    const saved = new Set(snap.clippings.map((c) => c.id));
+    return searchResult.items.map((item) =>
+      itemView(snap!.items.get(item.id) ?? item, feedById.get(item.feedId), now, { saved }),
+    );
+  });
+
+  async function openSearch() {
+    searching = true;
+    searchEntries = searchIndex(await (await dbReady).items.toArray());
+  }
+
+  function closeSearch() {
+    searching = false;
+    searchQuery = '';
+    searchEntries = null;
+  }
+
   async function toggleMore(category: string) {
     if (!snap) return;
     if (more.has(category)) {
@@ -409,6 +442,8 @@
   let current = -1;
 
   function onKey(e: KeyboardEvent) {
+    // While searching, keys belong to the search box and its results.
+    if (searching) return;
     const action = keyAction(e);
     if (!action || !snap?.edition) return;
     e.preventDefault();
@@ -435,6 +470,8 @@
       if (action === 'save') toggleSave(id);
       // Clippings are removed with s; only stories on the page can be hidden.
       else if (!article.closest('#clippings')) void hideStory(id);
+    } else if (action === 'search') {
+      void openSearch();
     } else if (action === 'refresh') {
       void refresh();
     } else if (action === 'new') {
@@ -494,6 +531,18 @@
     onshownew={showNewEdition}
     onstart={start}
     onrefresh={refresh}
+    onsearch={() => void openSearch()}
     settingsUrl={browser.runtime.getURL('/options.html')}
+  />
+{/if}
+{#if searching}
+  <Search
+    bind:query={searchQuery}
+    results={searchViews}
+    total={searchResult.total}
+    loading={!searchEntries}
+    onclose={closeSearch}
+    onopen={open}
+    onsave={toggleSave}
   />
 {/if}

@@ -6,7 +6,13 @@
     view,
     refreshing = false,
     onrefresh,
-  }: { view: FrontPageView; refreshing?: boolean; onrefresh?: () => void } = $props();
+    onsearch,
+  }: {
+    view: FrontPageView;
+    refreshing?: boolean;
+    onrefresh?: () => void;
+    onsearch?: () => void;
+  } = $props();
 
   const brokenIcons = new SvelteSet<string>();
   const host = (url: string) => {
@@ -82,6 +88,13 @@
             {/each}
             <li><a href="#in-brief">In Brief</a></li>
             {#if view.clippings.length}<li><a href="#clippings">Clippings</a></li>{/if}
+            {#if onsearch}
+              <li>
+                <button type="button" class="index-search" onclick={onsearch} title="Search (/)"
+                  >Search</button
+                >
+              </li>
+            {/if}
           </ul>
         </nav>
       {/if}
@@ -235,6 +248,16 @@
     font: 700 11.5px/1.6 var(--font-label);
     letter-spacing: 0.2em;
     text-transform: uppercase;
+  }
+  .index-search {
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: inherit;
+    padding: 0;
+  }
+  .index-search:hover {
+    text-decoration: underline;
   }
   .index a:hover {
     text-decoration: underline;
