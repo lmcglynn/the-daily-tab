@@ -1,3 +1,4 @@
+import { cleanMutedWords } from './mute';
 import { STARTER_SECTIONS } from './seed';
 import type { PinnedLink, Settings, Ticker, WeatherPlace } from './types';
 
@@ -15,6 +16,7 @@ export const DEFAULT_SETTINGS: Settings = {
   weatherPlace: null,
   units: 'f',
   tickers: [],
+  mutedWords: [],
 };
 
 function asPlace(v: unknown): WeatherPlace | null {
@@ -71,6 +73,7 @@ export function normalizeSettings(raw: unknown): Settings {
     weatherPlace: asPlace(r.weatherPlace),
     units: r.units === 'c' ? 'c' : 'f',
     tickers: asTickers(r),
+    mutedWords: cleanMutedWords(asArray(r.mutedWords) ?? []),
   };
 }
 

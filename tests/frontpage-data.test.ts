@@ -9,6 +9,7 @@ import {
   withEntry,
   withItems,
 } from '@/lib/frontpage-data';
+import { muteMatcher } from '@/lib/mute';
 import type { Edition } from '@/lib/types';
 import { HOUR, NOW, feed, freshDB, item } from './helpers';
 
@@ -87,6 +88,11 @@ describe('moreInSection', () => {
     const shown = shownKeys(new Map([['shown', item({ id: 'shown', feedId: 'w1' })]]));
     const more = await moreInSection(db, feeds, 'World', shown);
     expect(more.map((i) => i.id)).toEqual(['g1', 'old']);
+    // Muted stories don't come back through "More in …".
+    const muted = muteMatcher(['ferry']);
+    await db.items.update('g1', { title: 'Ferry service resumes' });
+    const unmuted = await moreInSection(db, feeds, 'World', shown, 6, muted);
+    expect(unmuted.map((i) => i.id)).toEqual(['g2', 'old']);
   });
 });
 

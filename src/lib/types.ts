@@ -136,4 +136,6 @@ export interface Settings {
   units: Units;
   /** Markets box under the lead story, in display order; empty hides it. */
   tickers: Ticker[];
+  /** Words and phrases whose stories are left off the front page (see lib/mute.ts). */
+  mutedWords: string[];
 }

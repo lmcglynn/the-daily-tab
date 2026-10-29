@@ -19,6 +19,7 @@
   import { extrasOrigins } from '@/lib/extras/refresh';
   import { feedIdFor } from '@/lib/hash';
   import type { Broadcast } from '@/lib/messages';
+  import { muteMatcher } from '@/lib/mute';
   import type { OpmlFeed } from '@/lib/opml';
   import { originPatterns } from '@/lib/seed';
   import {
@@ -33,6 +34,7 @@
   import { clock } from '@/ui/format';
   import AddFeed from './AddFeed.svelte';
   import FeedSections from './FeedSections.svelte';
+  import MutedTopics from './MutedTopics.svelte';
   import OpmlTools from './OpmlTools.svelte';
   import PinnedLinks from './PinnedLinks.svelte';
   import WeatherMarket from './WeatherMarket.svelte';
@@ -51,6 +53,23 @@
   let refreshNote = $state('');
 
   const sections = $derived(sectionList(settings.sections, feeds));
+
+  // How many stored stories each muted word matches, so the reader can see it working.
+  let mutedCounts = $state.raw(new Map<string, number>());
+  $effect(() => {
+    const words = settings.mutedWords;
+    if (!loaded || words.length === 0) return;
+    void withTimeout(db.items.toArray(), 5000)
+      .then((items) => {
+        mutedCounts = new Map(
+          words.map((w) => {
+            const hit = muteMatcher([w]);
+            return [w, items.filter(hit).length];
+          }),
+        );
+      })
+      .catch(() => undefined);
+  });
   const spotContrast = $derived(contrast(settings.spotColor, DAY_PAPER));
 
   // Load and sync ---------------------------------------------------------------------------
@@ -334,6 +353,15 @@
           {onremovesection}
           {onaddsection}
           onallow={allow}
+        />
+      </section>
+
+      <section aria-labelledby="muted-h">
+        <h2 id="muted-h">Muted topics</h2>
+        <MutedTopics
+          words={settings.mutedWords}
+          counts={mutedCounts}
+          onchange={(words: string[]) => void patchSettings({ mutedWords: words })}
         />
       </section>
 

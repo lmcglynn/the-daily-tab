@@ -39,8 +39,8 @@ export default defineBackground(() => {
     const newMin = (settings?.newValue as { refreshMinutes?: number } | undefined)?.refreshMinutes;
     if (settings && oldMin !== newMin) void ensureAlarm(true);
     if (Object.keys(changes).some(isFeedKey)) scheduleFeedsChanged();
-    else if (settings && sectionsKey(settings.oldValue) !== sectionsKey(settings.newValue)) {
-      // Section order changes the layout but needs no fetch.
+    else if (settings && layoutKey(settings.oldValue) !== layoutKey(settings.newValue)) {
+      // Section order and muted topics change the layout but need no fetch.
       scheduleCompose();
     }
     if (settings && extrasKey(settings.oldValue) !== extrasKey(settings.newValue)) {
@@ -104,7 +104,10 @@ function scheduleFeedsChanged() {
   feedsChangedTimer = setTimeout(() => void runRefresh(false), 1500);
 }
 
-const sectionsKey = (v: unknown) => JSON.stringify((v as { sections?: string[] })?.sections ?? []);
+const layoutKey = (v: unknown) => {
+  const s = (v ?? {}) as { sections?: unknown; mutedWords?: unknown };
+  return JSON.stringify([s.sections ?? [], s.mutedWords ?? []]);
+};
 
 let composeTimer: ReturnType<typeof setTimeout> | undefined;
 function scheduleCompose() {
@@ -135,7 +138,13 @@ async function doRefresh(force: boolean): Promise<RefreshReport | null> {
       force,
       hasAccess: (url) => browser.permissions.contains({ origins: [`${new URL(url).origin}/*`] }),
     });
-    const { edition, isNew } = await publishEdition(db, feeds, settings.sections, Date.now());
+    const { edition, isNew } = await publishEdition(
+      db,
+      feeds,
+      settings.sections,
+      Date.now(),
+      settings.mutedWords,
+    );
     if (isNew && edition) {
       broadcast({ type: 'edition-updated', editionId: edition.id, number: edition.number });
     }
@@ -180,6 +189,7 @@ async function handle(msg: Request): Promise<unknown> {
         feeds,
         settings.sections,
         Date.now(),
+        settings.mutedWords,
       );
       if (isNew && edition) {
         broadcast({ type: 'edition-updated', editionId: edition.id, number: edition.number });

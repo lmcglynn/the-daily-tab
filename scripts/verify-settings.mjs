@@ -175,6 +175,56 @@ try {
     `pinned link saved (${JSON.stringify(pinned)})`,
   );
 
+  step('muted topics: mute a word from the current lead, and the page is recomposed without it');
+  const latest = () =>
+    page.eval(`new Promise((resolve) => {
+      const q = indexedDB.open('daily-tab');
+      q.onsuccess = () => {
+        const db = q.result;
+        const tx = db.transaction(['editions', 'items'], 'readonly');
+        const c = tx.objectStore('editions').index('composedAt').openCursor(null, 'prev');
+        c.onsuccess = () => {
+          const e = c.result?.value;
+          if (!e) { db.close(); return resolve(null); }
+          const ids = [e.leadItemId, ...e.secondaryItemIds, ...(e.leadColumnItemIds || []),
+            ...e.sections.flatMap((s) => s.itemIds), ...e.briefItemIds];
+          const items = [];
+          ids.forEach((id) => { const g = tx.objectStore('items').get(id); g.onsuccess = () => g.result && items.push(g.result); });
+          tx.oncomplete = () => { db.close(); resolve({ id: e.id, lead: e.leadItemId, items }); };
+        };
+      };
+    })`);
+  let pageBefore;
+  for (let i = 0; i < 40 && !(pageBefore = await latest()); i++) await sleep(500);
+  const leadTitle = pageBefore.items.find((i) => i.id === pageBefore.lead).title;
+  const word = leadTitle
+    .split(/[^A-Za-z]+/)
+    .filter((w) => w.length >= 5)
+    .sort((a, b) => b.length - a.length)[0];
+  await setValue('form.mute-form input', word, 'input');
+  await page.eval(`document.querySelector('form.mute-form').requestSubmit()`);
+  await sleep(600);
+  check(
+    JSON.stringify((await sync()).settings.mutedWords) === JSON.stringify([word]),
+    `muted "${word}" (from "${leadTitle}")`,
+  );
+  let pageAfter = pageBefore;
+  for (let i = 0; i < 20 && pageAfter.id === pageBefore.id; i++) {
+    await sleep(500);
+    pageAfter = await latest();
+  }
+  const re = new RegExp(`\\b${word}`, 'i');
+  const leaks = pageAfter.items.filter((i) => re.test(i.title) || re.test(i.summary));
+  check(
+    pageAfter.id !== pageBefore.id && pageAfter.lead !== pageBefore.lead && leaks.length === 0,
+    `recomposed without it (new lead: "${pageAfter.items.find((i) => i.id === pageAfter.lead)?.title}"; ${leaks.length} mentions left)`,
+  );
+  const countText = await page.eval(`document.querySelector('.muted .count')?.textContent.trim()`);
+  check(/^hides \d+ recent stor/.test(countText ?? ''), `count shown ("${countText}")`);
+  await page.eval(`document.querySelector('[aria-label="Unmute ${word}"]').click()`);
+  await sleep(400);
+  check((await sync()).settings.mutedWords.length === 0, 'unmuted');
+
   step('add a feed (origin already granted in the e2e build)');
   await setValue('form.add input', 'https://www.theguardian.com/uk/technology/rss', 'input');
   await page.eval(`document.querySelector('form.add select').value = 'Tech'`);

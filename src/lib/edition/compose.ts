@@ -1,3 +1,4 @@
+import { muteMatcher } from '../mute';
 import type { Edition, Feed, Item } from '../types';
 
 /** Only coverage this recent counts toward the lead, so a big story gives way within hours. */
@@ -19,6 +20,8 @@ export interface ComposeInput {
   sections: string[];
   now: number;
   previousNumber: number;
+  /** Stories mentioning these are left out (Settings → Muted topics). */
+  mutedWords?: string[];
 }
 
 export function sectionOrder(feeds: Feed[], preferred: string[]): string[] {
@@ -54,7 +57,8 @@ export function composeEdition(input: ComposeInput): Edition | null {
   const outletOf = new Map(feeds.map((f) => [f.id, outletKey(f)]));
   const sections = sectionOrder(feeds, input.sections);
 
-  const known = input.items.filter((i) => categoryOf.has(i.feedId)).sort(newestFirst);
+  const muted = muteMatcher(input.mutedWords ?? []);
+  const known = input.items.filter((i) => categoryOf.has(i.feedId) && !muted(i)).sort(newestFirst);
   let pool = known.filter((i) => i.publishedAt >= now - POOL_WINDOW_MS);
   if (pool.length < POOL_MIN) pool = known.slice(0, POOL_FALLBACK);
   if (pool.length === 0) return null;

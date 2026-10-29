@@ -17,6 +17,7 @@
     type Snapshot,
   } from '@/lib/frontpage-data';
   import type { Broadcast } from '@/lib/messages';
+  import { muteMatcher } from '@/lib/mute';
   import { originPatterns } from '@/lib/seed';
   import { getFeeds, isFeedKey, removeFeed, saveSettings, setLastVisitAt } from '@/lib/storage';
   import type { Edition, Item } from '@/lib/types';
@@ -174,7 +175,14 @@
       more = withEntry(more, category, null);
       return;
     }
-    const extra = await moreInSection(await dbReady, snap.feeds, category, shownKeys(snap.items));
+    const extra = await moreInSection(
+      await dbReady,
+      snap.feeds,
+      category,
+      shownKeys(snap.items),
+      6,
+      muteMatcher(snap.settings.mutedWords),
+    );
     snap = { ...snap, items: withItems(snap.items, extra) };
     more = withEntry(
       more,

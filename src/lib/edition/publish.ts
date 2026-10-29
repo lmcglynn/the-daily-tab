@@ -44,6 +44,7 @@ export async function publishEdition(
   feeds: Feed[],
   sections: string[],
   now: number,
+  mutedWords: string[] = [],
 ): Promise<PublishResult> {
   await assignStories(db, now);
   const items = await db.items
@@ -57,6 +58,7 @@ export async function publishEdition(
     sections,
     now,
     previousNumber: prev?.number ?? 0,
+    mutedWords,
   });
   if (!edition) return { edition: prev ?? null, isNew: false };
   if (prev && sameLayout(prev, edition)) return { edition: prev, isNew: false };

@@ -132,13 +132,14 @@ export async function moreInSection(
   category: string,
   exclude: Set<string>,
   limit = 6,
+  muted: (item: Item) => boolean = () => false,
 ): Promise<Item[]> {
   const feedIds = feeds.filter((f) => f.category === category).map((f) => f.id);
   if (feedIds.length === 0) return [];
   const items = await db.items.where('feedId').anyOf(feedIds).toArray();
   const seenStories = new Set<string>();
   return items
-    .filter((i) => !exclude.has(i.id) && !(i.storyId && exclude.has(i.storyId)))
+    .filter((i) => !exclude.has(i.id) && !(i.storyId && exclude.has(i.storyId)) && !muted(i))
     .sort((a, b) => b.publishedAt - a.publishedAt)
     .filter((i) => {
       const key = i.storyId ?? i.id;
