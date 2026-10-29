@@ -103,6 +103,7 @@
             d="M8 1.6v2M8 12.4v2M1.6 8h2M12.4 8h2M3.47 3.47l1.42 1.42M11.11 11.11l1.42 1.42M3.47 12.53l1.42-1.42M11.11 4.89l1.42-1.42"
           /></svg
         ></a
+      >{/if}{#if settingsUrl && onsearch}<span class="sep" aria-hidden="true">·</span
       >{/if}{#if onsearch}<button
         type="button"
         class="folio-icon"
@@ -295,9 +296,6 @@
     /* The icons may be taller than the type; they overhang rather than heighten the folio. */
     margin-block: -3px;
     color: var(--ink);
-  }
-  .folio-icon + .folio-icon {
-    margin-left: 4px;
   }
   .folio-icon:hover {
     color: var(--ink-2);
