@@ -262,6 +262,9 @@
     line-height: 1.5;
     text-align: justify;
     hyphens: auto;
+    /* The drop cap is three lines tall: a one- or two-line summary still takes that height, so
+       the letter never runs into what follows (the markets box's rule). */
+    min-height: 3lh;
   }
   .lead-extras {
     margin-top: 16px;
