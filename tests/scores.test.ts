@@ -8,6 +8,7 @@ import {
   lastResult,
   parseGame,
   parseTeams,
+  fixturesUrl,
   scheduleUrl,
   summaryUrl,
   teamUrl,
@@ -246,6 +247,47 @@ describe('ESPN parsing', () => {
     const done = await fetchScores(fetchImpl, lakers, local(27, 22));
     expect(done.current).toBeNull();
     expect(done.last).toMatchObject({ id: 'g-live', detail: 'Final', home: { score: 91 } });
+  });
+
+  it('finds a soccer match in progress among the fixtures, with the score from its summary', async () => {
+    // As ESPN answered for MLS mid-match: absent from the results list, and the fixtures list
+    // has it "in" progress with a stale clock and no score.
+    const austin = { league: 'soccer/usa.1', id: '20906', name: 'Austin FC', abbr: 'ATX' };
+    const match = event(
+      '761910',
+      local(27, 19),
+      'in',
+      "4'",
+      competitor('20906', 'Austin', 'home'),
+      competitor('4771', 'Real Salt Lake', 'away'),
+    );
+    const summary = {
+      header: {
+        competitions: [
+          {
+            status: { type: { state: 'in', shortDetail: "64'" } },
+            competitors: [
+              { team: { id: '20906' }, score: '2' },
+              { team: { id: '4771' }, score: '1' },
+            ],
+          },
+        ],
+      },
+    };
+    const fetchImpl = (async (url: RequestInfo | URL) => {
+      const u = String(url);
+      if (u === teamUrl(austin)) return new Response(JSON.stringify({ team: { nextEvent: [] } }));
+      if (u === fixturesUrl(austin)) return new Response(JSON.stringify({ events: [match] }));
+      if (u === summaryUrl(austin, '761910')) return new Response(JSON.stringify(summary));
+      return new Response(JSON.stringify({ events: [] })); // results: not there
+    }) as typeof fetch;
+    const r = await fetchScores(fetchImpl, austin, local(27, 20));
+    expect(scoreView(austin, r, local(27, 20))).toMatchObject({
+      live: true,
+      score: '2–1',
+      opponent: 'vs. Real Salt Lake',
+      status: "64' · as of 8:00",
+    });
   });
 
   it('knows when a game is on or about to start', () => {

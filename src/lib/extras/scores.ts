@@ -1,8 +1,10 @@
 // Scores from ESPN's site API (unofficial, no key). Per followed team, from its schedule: the last
 // result and any game in progress. The next game comes from the team endpoint's `nextEvent`,
 // which works for every league (soccer schedules list upcoming fixtures only with ?fixture=true)
-// but skips a game in progress, pointing at the one after it. A game in progress takes its score
-// and status from the game's summary: the NBA schedule leaves live scores empty.
+// but skips a game in progress, pointing at the one after it. A game in progress is found in the
+// schedule (for soccer, in the fixtures list: the results list leaves it out) and takes its score
+// and status from the game's summary, since schedules often leave live scores empty (seen in the
+// NBA, NHL and MLB) or stale (soccer).
 import type { Game, GameSide, ScoreReport, SportsTeam } from '../types';
 
 export const SPORTS_ORIGINS = ['https://site.api.espn.com/*'];
@@ -24,6 +26,7 @@ export const teamKey = (t: Pick<SportsTeam, 'league' | 'id'>) => `${t.league}:${
 export const teamsUrl = (league: string) => `${BASE}/${league}/teams?limit=1000`;
 export const teamUrl = (t: SportsTeam) => `${BASE}/${t.league}/teams/${t.id}`;
 export const scheduleUrl = (t: SportsTeam) => `${BASE}/${t.league}/teams/${t.id}/schedule`;
+export const fixturesUrl = (t: SportsTeam) => `${scheduleUrl(t)}?fixture=true`;
 export const summaryUrl = (t: SportsTeam, eventId: string) =>
   `${BASE}/${t.league}/summary?event=${encodeURIComponent(eventId)}`;
 
@@ -100,8 +103,9 @@ export function lastResult(schedule: unknown, now: number): Game | null {
 }
 
 /** A game in progress in the schedule (the team endpoint's nextEvent skips it). */
-export function liveGame(schedule: unknown): Game | null {
-  const games = arr(obj(schedule).events)
+export function liveGame(...schedules: unknown[]): Game | null {
+  const games = schedules
+    .flatMap((s) => arr(obj(s).events))
     .map(parseGame)
     .filter((g): g is Game => g?.state === 'in');
   return games.sort((a, b) => b.date - a.date)[0] ?? null;
@@ -153,11 +157,14 @@ export async function fetchScores(
   team: SportsTeam,
   now: number,
 ): Promise<ScoreReport> {
-  const [teamJson, schedule] = await Promise.all([
+  const soccer = team.league.startsWith('soccer/');
+  const [teamJson, schedule, fixtures] = await Promise.all([
     getJson(fetchImpl, teamUrl(team)),
     getJson(fetchImpl, scheduleUrl(team)),
+    // A soccer match in progress is listed only among the fixtures.
+    soccer ? getJson(fetchImpl, fixturesUrl(team)).catch(() => null) : null,
   ]);
-  let live = liveGame(schedule);
+  let live = liveGame(schedule, fixtures);
   if (live?.id) {
     try {
       live = withSummary(live, await getJson(fetchImpl, summaryUrl(team, live.id)));
