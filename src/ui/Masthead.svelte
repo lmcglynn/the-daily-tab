@@ -87,8 +87,8 @@
         title="Settings"
         aria-label="Settings"
         ><svg
-          width="13"
-          height="13"
+          width="16"
+          height="16"
           viewBox="0 0 16 16"
           fill="none"
           stroke="currentColor"
@@ -292,6 +292,8 @@
     place-items: center;
     align-self: center;
     padding: 2px;
+    /* The icons may be taller than the type; they overhang rather than heighten the folio. */
+    margin-block: -3px;
     color: var(--ink);
   }
   .folio-icon + .folio-icon {
