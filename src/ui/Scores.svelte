@@ -15,6 +15,16 @@
   };
 
   let key = $state<string | null>(remembered());
+
+  // A game in progress is where the box opens, and a game that starts while the page is open
+  // brings the box to it; otherwise it stays on the team last viewed.
+  let seenLive = new Set<string>();
+  $effect.pre(() => {
+    const live = scores.filter((s) => s.live).map((s) => s.key);
+    const started = live.find((k) => !seenLive.has(k));
+    seenLive = new Set(live);
+    if (started) key = started;
+  });
   const index = $derived(
     Math.max(
       0,
@@ -73,8 +83,8 @@
     </div>
     <div class="row line" aria-hidden="true">
       <span class="result-line">
-        {#if game.result}<span class="result" class:live={game.live}>{game.result}</span
-          >{/if}{game.opponent}
+        {#if game.live}<span class="result live"><span class="live-dot"></span>Live</span
+          >{:else if game.result}<span class="result">{game.result}</span>{/if}{game.opponent}
       </span>
       <span class="status">{game.status}</span>
     </div>
@@ -179,10 +189,14 @@
     text-align: center;
     text-transform: uppercase;
   }
-  .result.live {
-    background: var(--ink);
-    color: var(--paper);
-    border-color: var(--ink);
+  .live-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 5px;
+    border-radius: 50%;
+    background: var(--spot);
+    vertical-align: 0.06em;
   }
   .status {
     flex: none;

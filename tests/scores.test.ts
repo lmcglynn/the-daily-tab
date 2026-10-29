@@ -245,6 +245,33 @@ describe('scores box view', () => {
     expect(gameWhen(local(39, 13), NOW)).toBe('Nov 8, 1:00 p.m.');
   });
 
+  it('puts live games first, each group in the reader’s order', () => {
+    const team = (id: string, name: string) => ({ ...lakers, id, name });
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      teams: [team('1', 'A'), team('2', 'B live'), team('3', 'C'), team('4', 'D live')],
+    };
+    const r = (id: string, live: boolean): ScoreReport => ({
+      ...report(lostLastNight, live ? liveAtClippers : tomorrowAtClippers),
+      key: `basketball/nba:${id}`,
+    });
+    const scores = Object.fromEntries(
+      [r('1', false), r('2', true), r('3', false), r('4', true)].map((x) => [x.key, x]),
+    );
+    // Rename sides so each report is about its own team id.
+    for (const [key, x] of Object.entries(scores)) {
+      const id = key.split(':')[1]!;
+      for (const g of [x.last, x.current]) if (g) g.away = { ...g.away, id };
+      if (x.last) x.last.home = { ...x.last.home, id };
+    }
+    expect(scoreViews(scores, settings, NOW).map((v) => [v.team, v.live])).toEqual([
+      ['B live', true],
+      ['D live', true],
+      ['A', false],
+      ['C', false],
+    ]);
+  });
+
   it('lists teams in the reader’s order, skipping ones with no recent report', () => {
     const settings = {
       ...DEFAULT_SETTINGS,

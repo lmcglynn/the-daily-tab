@@ -1,7 +1,8 @@
 /*
  * Design tokens. Day edition is the default; night applies when data-theme="night", or when
  * the system is dark and the reader hasn't forced day. Every color on the front page comes
- * from here. The spot color is reserved for kickers, "new" dots, focus rings and text selection.
+ * from here. The spot color is reserved for kickers, "new" and "live" dots, focus rings and text
+ * selection.
  */
 :root {
   color-scheme: light;

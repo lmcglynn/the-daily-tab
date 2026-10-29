@@ -319,6 +319,7 @@ export const settings: Settings = {
   teams: [
     { league: 'basketball/nba', id: '13', name: 'Los Angeles Lakers', abbr: 'LAL' },
     { league: 'football/nfl', id: '14', name: 'Los Angeles Rams', abbr: 'LAR' },
+    { league: 'hockey/nhl', id: '8', name: 'Los Angeles Kings', abbr: 'LA' },
   ],
 };
 
@@ -414,7 +415,7 @@ const side = (id: string, name: string, abbr: string, score?: number, winner?: b
   ...(winner && { winner }),
 });
 
-/** Last night's loss and tomorrow's game; Sunday's win and next Sunday's. */
+/** Last night's loss and tomorrow's game; Sunday's win and next Sunday's; a game under way. */
 export const scores: Record<string, ScoreReport> = {
   'basketball/nba:13': {
     at: NOW - 5 * 60_000,
@@ -454,6 +455,19 @@ export const scores: Record<string, ScoreReport> = {
       detail: '11/1 - 4:05 PM EST',
       home: side('14', 'Rams', 'LAR'),
       away: side('24', 'Chargers', 'LAC'),
+    },
+  },
+  'hockey/nhl:8': {
+    at: NOW - 60_000,
+    key: 'hockey/nhl:8',
+    last: null,
+    current: {
+      id: 'g5',
+      date: at(8, 30),
+      state: 'in',
+      detail: '2nd 8:41',
+      home: side('8', 'Kings', 'LA', 2),
+      away: side('16', 'Senators', 'OTT', 1),
     },
   },
 };

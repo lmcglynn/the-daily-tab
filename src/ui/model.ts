@@ -192,18 +192,22 @@ export function marketViews(
 
 const SCORES_MAX_AGE_MS = 4 * 24 * 60 * 60_000;
 
-/** Teams in the reader's order; a team with no recent report is left out. */
+/**
+ * Live games first, then the rest; each group in the reader's order. A team with no recent
+ * report is left out.
+ */
 export function scoreViews(
   scores: Record<string, ScoreReport> | undefined,
   settings: Settings,
   now: number,
 ): ScoreView[] {
-  return settings.teams.flatMap((t) => {
+  const views = settings.teams.flatMap((t) => {
     const report = scores?.[`${t.league}:${t.id}`];
     if (!report || now - report.at > SCORES_MAX_AGE_MS) return [];
     if (!report.last && !report.current) return [];
     return [scoreView(t, report, now)];
   });
+  return [...views.filter((v) => v.live), ...views.filter((v) => !v.live)];
 }
 
 const dayStart = (t: number) => new Date(t).setHours(0, 0, 0, 0);
