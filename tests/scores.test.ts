@@ -84,6 +84,15 @@ const tomorrowAtClippers = event(
   competitor('12', 'Clippers', 'home'),
   competitor('13', 'Lakers', 'away'),
 );
+/** Tonight at home, under way. */
+const liveTonight = event(
+  'g-live',
+  local(27, 19),
+  'in',
+  'End of 1st',
+  competitor('13', 'Lakers', 'home', 0),
+  competitor('17', 'Devils', 'away', 1),
+);
 /** The Clippers game, under way: Lakers 74, Clippers 70. */
 const liveAtClippers = event(
   'g2',
@@ -169,6 +178,25 @@ describe('ESPN parsing', () => {
     }) as typeof fetch;
     const r = await fetchScores(fetchImpl, lakers, local(29, 1));
     expect(r).toMatchObject({ key: 'basketball/nba:13', current: null, last: { id: 'g2' } });
+  });
+
+  it('finds a game in progress in the schedule, which the team endpoint skips', async () => {
+    // As ESPN answered for the Avalanche mid-game: nextEvent already points at the next game.
+    const fetchImpl = (async (url: RequestInfo | URL) => {
+      const u = String(url);
+      if (u === teamUrl(lakers)) {
+        return new Response(JSON.stringify({ team: { nextEvent: [tomorrowAtClippers] } }));
+      }
+      return new Response(JSON.stringify({ events: [wonLastWeek, liveTonight, lostLastNight] }));
+    }) as typeof fetch;
+    const r = await fetchScores(fetchImpl, lakers, local(27, 20));
+    expect(r.current).toMatchObject({ id: 'g-live', state: 'in', detail: 'End of 1st' });
+    expect(r.last!.id).toBe('g1');
+    expect(scoreView(lakers, r, local(27, 20))).toMatchObject({
+      live: true,
+      score: '0–1',
+      opponent: 'vs. Devils',
+    });
   });
 
   it('knows when a game is on or about to start', () => {

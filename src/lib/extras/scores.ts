@@ -1,6 +1,7 @@
-// Scores from ESPN's site API (unofficial, no key). Per followed team: the last result from its
-// schedule, and the next (or in-progress) game from the team endpoint's `nextEvent`, which works
-// for every league (soccer schedules list upcoming fixtures only with ?fixture=true).
+// Scores from ESPN's site API (unofficial, no key). Per followed team, from its schedule: the last
+// result and any game in progress. The next game comes from the team endpoint's `nextEvent`,
+// which works for every league (soccer schedules list upcoming fixtures only with ?fixture=true)
+// but skips a game in progress, pointing at the one after it.
 import type { Game, GameSide, ScoreReport, SportsTeam } from '../types';
 
 export const SPORTS_ORIGINS = ['https://site.api.espn.com/*'];
@@ -95,7 +96,15 @@ export function lastResult(schedule: unknown, now: number): Game | null {
   return games.sort((a, b) => b.date - a.date)[0] ?? null;
 }
 
-/** The team's next or in-progress game, from the team endpoint. */
+/** A game in progress in the schedule (the team endpoint's nextEvent skips it). */
+export function liveGame(schedule: unknown): Game | null {
+  const games = arr(obj(schedule).events)
+    .map(parseGame)
+    .filter((g): g is Game => g?.state === 'in');
+  return games.sort((a, b) => b.date - a.date)[0] ?? null;
+}
+
+/** The team's next game, from the team endpoint. */
 export function currentGame(team: unknown): Game | null {
   return parseGame(arr(obj(obj(team).team).nextEvent)[0]);
 }
@@ -120,7 +129,7 @@ export async function fetchScores(
     getJson(fetchImpl, teamUrl(team)),
     getJson(fetchImpl, scheduleUrl(team)),
   ]);
-  let current = currentGame(teamJson);
+  let current = liveGame(schedule) ?? currentGame(teamJson);
   let last = lastResult(schedule, now);
   // Just finished but still the "next event": it's the latest result.
   if (current?.state === 'post') {
