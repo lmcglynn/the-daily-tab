@@ -76,6 +76,7 @@
   onmore={(c) => console.info('more in', c)}
   onopen={(id) => console.info('open', id)}
   onsave={save}
+  onsearch={() => console.info('search')}
 />
 
 {#if toolbar}

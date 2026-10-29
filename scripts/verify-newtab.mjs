@@ -339,9 +339,12 @@ try {
     windowsVirtualKeyCode: 27,
   });
   // Choosing the item: the background hands the link to the tab, as onClicked does.
+  // Like onClicked: only to the tab whose menu was used (other open tabs follow via storage).
+  const menuTabId = await page2.eval(`chrome.tabs.getCurrent().then((t) => t.id)`);
   const sendToTabs = (url, item = 'clip') =>
-    sw.eval(`chrome.tabs.query({}).then((tabs) => Promise.all(tabs.map((t) =>
-      chrome.tabs.sendMessage(t.id, { type: 'story-menu-choice', item: ${JSON.stringify(item)}, url: ${JSON.stringify(url)} }).catch(() => null))))`);
+    sw.eval(
+      `chrome.tabs.sendMessage(${menuTabId}, { type: 'story-menu-choice', item: ${JSON.stringify(item)}, url: ${JSON.stringify(url)} })`,
+    );
   await sendToTabs(clipTarget.href);
   await sleep(300);
   check(
@@ -486,6 +489,14 @@ try {
   });
   await sleep(200);
   check(await page2.eval(`!document.querySelector('dialog.search')`), 'Esc closes it');
+  await page2.eval(`document.querySelector('.folio-search').click()`);
+  await sleep(200);
+  check(
+    await page2.eval(`document.querySelector('dialog.search')?.open === true`),
+    'the magnifying glass in the date line opens it too',
+  );
+  await page2.eval(`document.querySelector('dialog.search').close()`);
+  await sleep(150);
 
   step('keyboard: o opens the current story');
   await page2.send('Page.bringToFront');

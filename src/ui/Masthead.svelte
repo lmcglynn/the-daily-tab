@@ -75,7 +75,26 @@
         title="Fetch the latest stories now"
         aria-label={refreshing ? 'Updating' : `${view.updatedLabel}. Refresh now`}
         >{refreshing ? 'Updating…' : view.updatedLabel}</button
-      >{:else}<span>{view.updatedLabel}</span>{/if}
+      >{:else}<span>{view.updatedLabel}</span>{/if}{#if onsearch}<span
+        class="sep"
+        aria-hidden="true">·</span
+      ><button
+        type="button"
+        class="folio-search"
+        onclick={onsearch}
+        title="Search stories (/)"
+        aria-label="Search stories"
+        ><svg
+          width="13"
+          height="13"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+          stroke-linecap="round"
+          aria-hidden="true"><circle cx="6.6" cy="6.6" r="4.6" /><path d="M10.1 10.1 14 14" /></svg
+        ></button
+      >{/if}
   </p>
 
   {#if view.sections.length || view.pinned.length}
@@ -88,13 +107,6 @@
             {/each}
             <li><a href="#in-brief">In Brief</a></li>
             {#if view.clippings.length}<li><a href="#clippings">Clippings</a></li>{/if}
-            {#if onsearch}
-              <li>
-                <button type="button" class="index-search" onclick={onsearch} title="Search (/)"
-                  >Search</button
-                >
-              </li>
-            {/if}
           </ul>
         </nav>
       {/if}
@@ -249,15 +261,16 @@
     letter-spacing: 0.2em;
     text-transform: uppercase;
   }
-  .index-search {
-    font: inherit;
-    letter-spacing: inherit;
-    text-transform: inherit;
-    color: inherit;
-    padding: 0;
+  /* Search sits with the page's other action (refresh) at the end of the folio. */
+  .folio-search {
+    display: inline-grid;
+    place-items: center;
+    align-self: center;
+    padding: 2px;
+    color: var(--ink);
   }
-  .index-search:hover {
-    text-decoration: underline;
+  .folio-search:hover {
+    color: var(--ink-2);
   }
   .index a:hover {
     text-decoration: underline;

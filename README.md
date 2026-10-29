@@ -99,7 +99,7 @@ first.
 
 ## Search
 
-Press **/** or click **Search** at the end of the section index to search the last month of stories
+Press **/** or click the magnifying glass at the end of the date line to search the last month of stories
 kept on your computer. Every word you type must appear in a story's headline or summary (the
 start of a word is enough: "ukr" finds "Ukraine"); stories with every word in the headline come
 first, then the newest. **Esc** closes it.
