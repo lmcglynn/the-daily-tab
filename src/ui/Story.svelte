@@ -31,6 +31,21 @@
   const open = (e: MouseEvent) => onopen?.(story.id, e);
 </script>
 
+{#snippet coverage()}
+  {#if story.coverage?.length}
+    <p class="coverage">
+      <span class="coverage-label">Also covered by</span>
+      {#each story.coverage as c, i (c.id)}{#if i}<span class="sep" aria-hidden="true"
+            >&#32;·&#32;</span
+          >{/if}<a
+          href={c.link}
+          onclick={(e) => onopen?.(c.id, e)}
+          onauxclick={(e) => onopen?.(c.id, e)}>{c.source}</a
+        >{/each}
+    </p>
+  {/if}
+{/snippet}
+
 {#snippet byline()}
   <p class="byline">
     <!-- Explicit separators: a block's leading whitespace is trimmed. -->
@@ -65,7 +80,12 @@
     {#if kicker}
       <p class="kicker">
         {#if story.isNew}<span class="dot" title="New since your last visit" aria-hidden="true"
-          ></span><span class="visually-hidden">New since your last visit: </span>{/if}{kicker}
+          ></span><span class="visually-hidden"
+            >New since your last visit:
+          </span>{/if}{kicker}{#if story.developing}<span
+            class="developing"
+            title="Outlets are still adding to this story">&#32;· Developing</span
+          >{/if}
       </p>
     {/if}
     {#if variant === 'lead'}
@@ -84,11 +104,14 @@
         {#if showPhoto}
           <div class="lead-photo">
             <Photo src={story.imageUrl!} href={story.link} eager fill />
+            <!-- Under the photo, where the taller text column leaves room. -->
+            {@render coverage()}
           </div>
         {/if}
         <div class="lead-text">
           {@render byline()}
           {#if story.body}<p class="body">{story.body}</p>{/if}
+          {#if !showPhoto}{@render coverage()}{/if}
           {#if extras}<div class="lead-extras">{@render extras()}</div>{/if}
         </div>
       </div>
@@ -223,6 +246,42 @@
   .lead-photo {
     grid-column: 1 / span 2;
     container-type: inline-size;
+    display: flex;
+    flex-direction: column;
+  }
+  /* The photo takes the column's height (within its 4:3 to 4:5 bounds) less the coverage line. */
+  .lead-photo > :global(.photo.fill) {
+    flex: 1 1 0;
+    height: auto;
+  }
+  .coverage {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--rule);
+    font: 500 11.5px/1.6 var(--font-label);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  .lead-text > .coverage {
+    margin: 0 0 12px;
+  }
+  .coverage-label {
+    font-weight: 700;
+    color: var(--ink);
+    margin-right: 6px;
+  }
+  .coverage a {
+    text-decoration: underline;
+    text-decoration-color: var(--rule);
+    text-underline-offset: 0.2em;
+  }
+  .coverage a:hover {
+    color: var(--ink);
+    text-decoration-color: currentColor;
+  }
+  .developing {
+    font-weight: 700;
   }
   .lead-text {
     grid-column: 3 / span 2;

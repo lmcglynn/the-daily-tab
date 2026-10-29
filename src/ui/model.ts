@@ -40,6 +40,10 @@ export interface StoryView {
   isNew: boolean;
   /** In the reader's clippings. */
   saved: boolean;
+  /** Lead only: the same story from other outlets ("Also covered by"). */
+  coverage?: { id: string; source: string; link: string }[];
+  /** Lead only: another outlet has joined the story in the last hour. */
+  developing?: boolean;
 }
 
 export interface WeatherView {
@@ -429,6 +433,13 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
           .sort((a, b) => b.length - a.length)[0];
         if (fuller && fuller !== lead.deck) lead.body = fuller;
       }
+      const related = edition.leadRelatedItemIds
+        .map((id) => items.get(id))
+        .filter((i): i is Item => !!i);
+      lead.coverage = related
+        .map((i) => ({ id: i.id, source: feedById.get(i.feedId)?.title ?? '', link: i.link }))
+        .filter((c) => c.source);
+      lead.developing = isDeveloping([items.get(edition.leadItemId)!, ...related], now);
     }
   }
 
@@ -478,6 +489,18 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
     clippings: clippings.map((c) => clippingView(c, now)),
     corrections: edition ? corrections(input.states, feedById) : [],
   };
+}
+
+const DEVELOPING_WINDOW_MS = 60 * 60_000;
+
+/**
+ * A story is developing when an outlet other than the first to report it has published on it
+ * in the last hour: the story is still drawing coverage.
+ */
+export function isDeveloping(group: Pick<Item, 'publishedAt'>[], now: number): boolean {
+  if (group.length < 2) return false;
+  const [, ...followers] = [...group].sort((a, b) => a.publishedAt - b.publishedAt);
+  return followers.some((i) => i.publishedAt <= now && now - i.publishedAt <= DEVELOPING_WINDOW_MS);
 }
 
 function clippingView(c: Clipping, now: number): StoryView {

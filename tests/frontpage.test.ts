@@ -83,6 +83,16 @@ describe('buildFrontPage', () => {
     expect(v.leadColumn.every((s) => !placed.has(s.id))).toBe(true);
   });
 
+  it('lists the lead’s other outlets, and calls a story with fresh coverage developing', () => {
+    const v = buildFrontPage(base);
+    expect(v.lead!.coverage!.map((c) => c.source).sort()).toEqual(['BBC News', 'NPR']);
+    expect(v.lead!.coverage!.every((c) => c.link.startsWith('https://'))).toBe(true);
+    // Fixture coverage: 7:55 (first), 8:20 and 9:05; the page is at 9:42.
+    expect(v.lead!.developing).toBe(true);
+    expect(buildFrontPage({ ...base, now: fx.NOW + 2 * 3_600_000 }).lead!.developing).toBe(false);
+    expect(v.secondary.every((s) => s.coverage === undefined && !s.developing)).toBe(true);
+  });
+
   it('shows weather in the ear and moves the new count to the folio', () => {
     const settings = {
       ...fx.settings,
