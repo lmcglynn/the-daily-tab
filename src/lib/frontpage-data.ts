@@ -13,8 +13,8 @@ import type {
   HiddenStory,
   Item,
   MarketReport,
-  ScoreReport,
   Settings,
+  SportsReport,
   WeatherReport,
 } from './types';
 
@@ -33,7 +33,7 @@ export interface Snapshot {
   /** Saved stories, newest first. */
   clippings: Clipping[];
   /** Scores by league:id. */
-  scores: Record<string, ScoreReport>;
+  scores: Record<string, SportsReport>;
   /** Stories the reader hid. */
   hidden: HiddenStory[];
 }
@@ -60,11 +60,12 @@ export function localExtras(local: Record<string, unknown>) {
   };
 }
 
-export function asScores(v: unknown): Record<string, ScoreReport> {
-  const out: Record<string, ScoreReport> = {};
+export function asScores(v: unknown): Record<string, SportsReport> {
+  const out: Record<string, SportsReport> = {};
   if (!v || typeof v !== 'object') return out;
-  for (const [key, r] of Object.entries(v as Record<string, ScoreReport>)) {
-    if (r && typeof r.at === 'number' && ('last' in r || 'current' in r)) out[key] = r;
+  for (const [key, r] of Object.entries(v as Record<string, SportsReport>)) {
+    const ok = 'kind' in r ? r.kind === 'race' : 'last' in r || 'current' in r;
+    if (r && typeof r.at === 'number' && ok) out[key] = r;
   }
   return out;
 }

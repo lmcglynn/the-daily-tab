@@ -78,7 +78,8 @@ Node is installed machine-wide (`C:\Program Files\nodejs`). In the Bash tool, pr
 - Fonts: critical faces are preloaded by the `preloadFonts` plugin in `wxt.config.ts` and use
   `font-display: block`; add a new face to its regex if it appears above the fold.
 - Weather (Open-Meteo, no key), market quotes (Yahoo Finance chart endpoint, unofficial, no key)
-  and scores (ESPN site API, unofficial, no key) live in `src/lib/extras/`. The background
+  and scores (ESPN site API, unofficial, no key; Formula 1 from Jolpica, `api.jolpi.ca`, since
+  ESPN's F1 results have no constructors) live in `src/lib/extras/`. The background
   fetches them with each refresh (own freshness windows; forced when the place, units, tickers
   or teams change) and caches them in `chrome.storage.local` (`weather`, `markets`, `scores`);
   the new tab only reads that cache. While a followed team is playing, a one-off `scores` alarm

@@ -5,7 +5,8 @@
 // schedule (for soccer, in the fixtures list: the results list leaves it out) and takes its score
 // and status from the game's summary, since schedules often leave live scores empty (seen in the
 // NBA, NHL and MLB) or stale (soccer).
-import type { Game, GameSide, ScoreReport, SportsTeam } from '../types';
+import { isRaceReport } from '../types';
+import type { Game, GameSide, ScoreReport, SportsReport, SportsTeam } from '../types';
 
 export const SPORTS_ORIGINS = ['https://site.api.espn.com/*'];
 const BASE = 'https://site.api.espn.com/apis/site/v2/sports';
@@ -18,6 +19,8 @@ export const LEAGUES: { id: string; name: string }[] = [
   { id: 'hockey/nhl', name: 'NHL' },
   { id: 'soccer/usa.1', name: 'MLS' },
   { id: 'soccer/eng.1', name: 'Premier League' },
+  // Not ESPN: one entry, results from Jolpica (lib/extras/racing.ts).
+  { id: 'racing/f1', name: 'Formula 1' },
 ];
 export const LEAGUE_IDS = new Set(LEAGUES.map((l) => l.id));
 export const TEAM_ID = /^\d{1,8}$/;
@@ -153,7 +156,8 @@ async function getJson(fetchImpl: typeof fetch, url: string): Promise<unknown> {
 }
 
 export async function fetchTeams(fetchImpl: typeof fetch, league: string): Promise<SportsTeam[]> {
-  if (!LEAGUE_IDS.has(league)) throw new Error(`Unknown league ${league}`);
+  if (!LEAGUE_IDS.has(league) || league === 'racing/f1')
+    throw new Error(`Unknown league ${league}`);
   return parseTeams(await getJson(fetchImpl, teamsUrl(league)), league);
 }
 
@@ -194,7 +198,8 @@ export async function fetchScores(
 }
 
 /** A game is on, or starts within 15 minutes: worth checking every couple of minutes. */
-export function isLiveOrSoon(report: ScoreReport | undefined, now: number): boolean {
+export function isLiveOrSoon(report: SportsReport | undefined, now: number): boolean {
+  if (isRaceReport(report)) return false;
   const g = report?.current;
   if (!g) return false;
   return (

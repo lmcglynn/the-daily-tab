@@ -399,6 +399,32 @@ try {
     );
   }
 
+  step('Formula 1: follow it (live Jolpica), last race and next race fetched');
+  await setValue('form.pick select', 'racing/f1');
+  await sleep(150);
+  const f1Button = await page.eval(
+    `document.querySelector('form.pick button[type=submit]').textContent.trim()`,
+  );
+  await gesture(`document.querySelector('form.pick').requestSubmit()`);
+  let f1Followed = false;
+  for (let i = 0; i < 20 && !f1Followed; i++) {
+    await sleep(200);
+    f1Followed = (await sync()).settings.teams.some((t) => t.league === 'racing/f1');
+  }
+  check(f1Button === 'Follow Formula 1' && f1Followed, `"${f1Button}" adds Formula 1 to the teams`);
+  let f1 = null;
+  for (let i = 0; i < 40 && !f1; i++) {
+    await sleep(250);
+    f1 = (await local()).scores?.['racing/f1:0'] ?? null;
+  }
+  const podium = f1?.lastRace?.podium
+    ?.map((p) => `${p.position} ${p.family} (${p.constructor})`)
+    .join(', ');
+  check(
+    f1?.kind === 'race' && f1.lastRace?.podium?.length === 3,
+    `fetched: ${f1?.lastRace?.name}: ${podium}; next: ${f1?.nextRace?.name ?? 'none'}, ${f1?.nextRace?.city ?? ''}`,
+  );
+
   step('new tab shows the weather ear and cycles the markets box');
   const tab = await browser.newPage();
   await tab.navigate(`chrome-extension://${extId}/newtab.html`);

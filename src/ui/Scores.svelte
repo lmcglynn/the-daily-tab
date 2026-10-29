@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type { ScoreView } from './model';
+  import type { SportsView } from './model';
 
   let {
     scores,
     joined = false,
   }: {
-    scores: ScoreView[];
+    scores: SportsView[];
     /** Directly under the markets box, sharing its bottom rule as the line between them. */
     joined?: boolean;
   } = $props();
@@ -59,6 +59,10 @@
     e.preventDefault();
   }
 
+  // Formula 1's podium takes three lines: with it in the carousel, every entry gets its height,
+  // so cycling never changes the box's size.
+  const tall = $derived(scores.some((s) => s.kind === 'race'));
+
   const neighbour = (step: number) => scores[(index + step + scores.length) % scores.length]!.team;
 </script>
 
@@ -83,19 +87,35 @@
     {/if}
   </div>
 
-  <div class="game" aria-live={many ? 'polite' : undefined}>
+  <div class="game" class:tall aria-live={many ? 'polite' : undefined}>
     <span class="visually-hidden">{game.label}</span>
-    <div class="row" aria-hidden="true">
-      <span class="team">{game.team}</span>
-      {#if game.score}<span class="score">{game.score}</span>{/if}
-    </div>
-    <div class="row line" aria-hidden="true">
-      <span class="result-line">
-        {#if game.live}<span class="result live"><span class="live-dot"></span>Live</span
-          >{:else if game.result}<span class="result">{game.result}</span>{/if}{game.opponent}
-      </span>
-      <span class="status">{game.status}</span>
-    </div>
+    {#if game.kind === 'race'}
+      <div class="row" aria-hidden="true">
+        <span class="team">{game.race}</span>
+        <span class="status">{game.status}</span>
+      </div>
+      <ol class="podium" aria-hidden="true">
+        {#each game.podium as p (p.position)}
+          <li>
+            <span class="place">{p.position}</span><span class="driver">{p.driver}</span><span
+              class="constructor">{p.constructor}</span
+            >
+          </li>
+        {/each}
+      </ol>
+    {:else}
+      <div class="row" aria-hidden="true">
+        <span class="team">{game.team}</span>
+        {#if game.score}<span class="score">{game.score}</span>{/if}
+      </div>
+      <div class="row line" aria-hidden="true">
+        <span class="result-line">
+          {#if game.live}<span class="result live"><span class="live-dot"></span>Live</span
+            >{:else if game.result}<span class="result">{game.result}</span>{/if}{game.opponent}
+        </span>
+        <span class="status">{game.status}</span>
+      </div>
+    {/if}
     <!-- Always present, so every team is the same height and cycling never reflows. -->
     <p class="next" aria-hidden="true">{game.next || ' '}</p>
   </div>
@@ -215,6 +235,47 @@
     letter-spacing: 0.04em;
     color: var(--ink-2);
     white-space: nowrap;
+  }
+  .game.tall {
+    display: flex;
+    flex-direction: column;
+    /* A race's rows: title 22.8 + podium 3 × 17 + 2 + next 4 + 15.2. */
+    min-height: 95px;
+  }
+  .game.tall .next {
+    margin-top: auto;
+    padding-top: 4px;
+  }
+  .podium {
+    list-style: none;
+    margin: 2px 0 0;
+    padding: 0;
+  }
+  .podium li {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    /* Exactly 17px a line, whatever the mix of faces: the box's height is fixed above. */
+    height: 17px;
+    font-size: 12.5px;
+    line-height: 17px;
+    white-space: nowrap;
+  }
+  .place {
+    flex: none;
+    width: 1.1em;
+    font: 700 14px/17px var(--font-head);
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+  .driver {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .constructor {
+    margin-left: auto;
+    flex: none;
+    color: var(--ink-2);
   }
   .next {
     margin-top: 4px;

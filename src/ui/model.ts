@@ -1,4 +1,5 @@
 import { describeWeather, reportMatches } from '@/lib/extras/weather-words';
+import { isRaceReport } from '@/lib/types';
 import type {
   Clipping,
   Edition,
@@ -8,8 +9,11 @@ import type {
   Game,
   MarketReport,
   PinnedLink,
+  Race,
+  RaceReport,
   ScoreReport,
   Settings,
+  SportsReport,
   SportsTeam,
   WeatherReport,
 } from '@/lib/types';
@@ -78,6 +82,7 @@ export interface MarketView {
 }
 
 export interface ScoreView {
+  kind: 'game';
   key: string;
   /** "Los Angeles Lakers" */
   team: string;
@@ -96,6 +101,26 @@ export interface ScoreView {
   offseason: boolean;
   label: string;
 }
+
+/** Formula 1 in the scores box: the last race's podium and the next race. */
+export interface RaceView {
+  kind: 'race';
+  key: string;
+  /** "Formula 1" (what the carousel's arrows name). */
+  team: string;
+  /** "F1 · United States GP", or "F1 · No races yet". */
+  race: string;
+  /** "Final · Sun", "Final · Oct 25". */
+  status: string;
+  podium: { position: number; driver: string; constructor: string }[];
+  /** "Next: Sun, 1:00 p.m. · Mexico City, Mexico" */
+  next: string;
+  live: false;
+  offseason: boolean;
+  label: string;
+}
+
+export type SportsView = ScoreView | RaceView;
 
 /** First-run chooser: a section and the feeds that fill it. */
 export interface SectionChoice {
@@ -133,7 +158,7 @@ export interface FrontPageView {
   /** Markets box at the foot of the lead's text column (cycled with arrows). */
   markets: MarketView[];
   /** Scores box under it, one followed team at a time (none in spoiler mode). */
-  scores: ScoreView[];
+  scores: SportsView[];
   /** The spoiler-mode switch: shown when the reader follows teams. */
   spoilers: { available: boolean; on: boolean };
   secondary: StoryView[];
@@ -158,7 +183,7 @@ export interface FrontPageInput {
   weather?: WeatherReport | null;
   markets?: Record<string, MarketReport>;
   clippings?: Clipping[];
-  scores?: Record<string, ScoreReport>;
+  scores?: Record<string, SportsReport>;
 }
 
 const WEATHER_MAX_AGE_MS = 6 * 60 * 60_000;
@@ -205,17 +230,20 @@ const SCORES_MAX_AGE_MS = 4 * 24 * 60 * 60_000;
  * reader's order. A team with no recent report is left out.
  */
 export function scoreViews(
-  scores: Record<string, ScoreReport> | undefined,
+  scores: Record<string, SportsReport> | undefined,
   settings: Settings,
   now: number,
-): ScoreView[] {
-  const views = settings.teams.flatMap((t) => {
+): SportsView[] {
+  const views = settings.teams.flatMap((t): SportsView[] => {
     const report = scores?.[`${t.league}:${t.id}`];
     if (!report || now - report.at > SCORES_MAX_AGE_MS) return [];
+    if (isRaceReport(report)) {
+      return report.lastRace || report.nextRace ? [raceView(report, now)] : [];
+    }
     if (!report.last && !report.current) return [];
     return [scoreView(t, report, now)];
   });
-  const rank = (v: ScoreView) => (v.live ? 0 : v.offseason ? 2 : 1);
+  const rank = (v: SportsView) => (v.live ? 0 : v.offseason ? 2 : 1);
   // Array sort is stable: within a rank, the reader's order stands.
   return views.sort((a, b) => rank(a) - rank(b));
 }
@@ -252,6 +280,44 @@ function sides(g: Game, teamId: string) {
   const other = mine === g.home ? g.away : g.home;
   const where = mine === g.home ? 'vs.' : 'at';
   return { mine, other, opponent: `${where} ${other.name}` };
+}
+
+/** "Mexico City, Mexico" */
+const racePlace = (r: Race) => [r.city, r.country].filter(Boolean).join(', ') || r.circuit;
+/** "A. Antonelli" */
+const shortDriver = (name: string) => {
+  const parts = name.split(' ');
+  return parts.length > 1 ? `${parts[0]![0]}. ${parts.at(-1)}` : name;
+};
+
+export function raceView(report: RaceReport, now: number): RaceView {
+  const last = report.lastRace;
+  const next =
+    report.nextRace && report.nextRace.date > now - 3 * 3600_000 ? report.nextRace : null;
+  const on = last ? playedOn(last.date, now) : '';
+  const status = last ? (on ? `Final · ${on}` : 'Final') : '';
+  const podium = (last?.podium ?? []).map((p) => ({
+    position: p.position,
+    driver: shortDriver(p.driver),
+    constructor: p.constructor,
+  }));
+  const nextText = next ? `Next: ${gameWhen(next.date, now)} · ${racePlace(next)}` : '';
+  const spoken = last
+    ? `Formula 1, ${last.name}: ${last.podium.map((p) => `${p.position}, ${p.driver}, ${p.constructor}`).join('; ')}.`
+    : 'Formula 1: no races yet this season.';
+  return {
+    kind: 'race',
+    key: report.key,
+    team: 'Formula 1',
+    // "F1 · United States GP": the box is narrow.
+    race: `F1 · ${last ? last.name.replace(/\s*Grand Prix$/, ' GP') : 'No races yet'}`,
+    status,
+    podium,
+    next: nextText,
+    live: false,
+    offseason: !next || next.date - now > OFFSEASON_AFTER_MS,
+    label: nextText ? `${spoken} ${nextText}.` : spoken,
+  };
 }
 
 export function scoreView(team: SportsTeam, report: ScoreReport, now: number): ScoreView {
@@ -302,6 +368,7 @@ export function scoreView(team: SportsTeam, report: ScoreReport, now: number): S
     ? `Next: ${gameWhen(upcoming.date, now).replace(', ', ` ${sides(upcoming, team.id).opponent}, `)}`
     : '';
   return {
+    kind: 'game',
     key: `${team.league}:${team.id}`,
     team: team.name,
     score,

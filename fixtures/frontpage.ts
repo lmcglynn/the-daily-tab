@@ -14,8 +14,8 @@ import type {
   FeedState,
   Item,
   MarketReport,
-  ScoreReport,
   Settings,
+  SportsReport,
   WeatherReport,
 } from '@/lib/types';
 
@@ -320,6 +320,7 @@ export const settings: Settings = {
     { league: 'basketball/nba', id: '13', name: 'Los Angeles Lakers', abbr: 'LAL' },
     { league: 'football/nfl', id: '14', name: 'Los Angeles Rams', abbr: 'LAR' },
     { league: 'hockey/nhl', id: '8', name: 'Los Angeles Kings', abbr: 'LA' },
+    { league: 'racing/f1', id: '0', name: 'Formula 1', abbr: 'F1', nickname: 'F1' },
   ],
 };
 
@@ -416,7 +417,7 @@ const side = (id: string, name: string, abbr: string, score?: number, winner?: b
 });
 
 /** Last night's loss and tomorrow's game; Sunday's win and next Sunday's; a game under way. */
-export const scores: Record<string, ScoreReport> = {
+export const scores: Record<string, SportsReport> = {
   'basketball/nba:13': {
     at: NOW - 5 * 60_000,
     key: 'basketball/nba:13',
@@ -455,6 +456,38 @@ export const scores: Record<string, ScoreReport> = {
       detail: '11/1 - 4:05 PM EST',
       home: side('14', 'Rams', 'LAR'),
       away: side('24', 'Chargers', 'LAC'),
+    },
+  },
+  'racing/f1:0': {
+    at: NOW - 30 * 60_000,
+    key: 'racing/f1:0',
+    kind: 'race',
+    lastRace: {
+      name: 'United States Grand Prix',
+      date: at(13, 0, -2),
+      circuit: 'Circuit of the Americas',
+      city: 'Austin',
+      country: 'USA',
+      podium: [
+        {
+          position: 1,
+          driver: 'Andrea Kimi Antonelli',
+          family: 'Antonelli',
+          constructor: 'Mercedes',
+        },
+        { position: 2, driver: 'Charles Leclerc', family: 'Leclerc', constructor: 'Ferrari' },
+        { position: 3, driver: 'Max Verstappen', family: 'Verstappen', constructor: 'Red Bull' },
+      ],
+      field: ['Antonelli', 'Mercedes', 'Leclerc', 'Ferrari', 'Verstappen', 'Red Bull'],
+    },
+    nextRace: {
+      name: 'Mexico City Grand Prix',
+      date: at(12, 0, 5),
+      circuit: 'Autódromo Hermanos Rodríguez',
+      city: 'Mexico City',
+      country: 'Mexico',
+      podium: [],
+      field: [],
     },
   },
   'hockey/nhl:8': {

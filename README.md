@@ -84,7 +84,9 @@ to The Daily Tab** at the top returns to the front page. There you can:
   off the page;
 - add pinned links under the masthead;
 - set a city for the weather (°F or °C), choose the tickers in the markets box, and follow teams
-  (NFL, NBA, WNBA, MLB, NHL, MLS, Premier League) in the scores box, live while they play.
+  (NFL, NBA, WNBA, MLB, NHL, MLS, Premier League) in the scores box, live while they play, and
+  Formula 1 (the last race's top three with their constructors, and the next race's date and
+  place).
 
 Settings also notes any feed that still works but has stopped publishing.
 

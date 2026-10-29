@@ -1,6 +1,7 @@
 <script lang="ts">
   import { browser } from 'wxt/browser';
   import { MAX_TEAMS } from '@/lib/defaults';
+  import { F1, isRacing, RACING_ORIGINS } from '@/lib/extras/racing';
   import { LEAGUES, SPORTS_ORIGINS, teamKey } from '@/lib/extras/scores';
   import { moveItem } from '@/lib/feeds-edit';
   import type { Settings, SportsTeam } from '@/lib/types';
@@ -25,9 +26,15 @@
   const leagueName = (id: string) => LEAGUES.find((l) => l.id === id)?.name ?? '';
 
   /** Inside the click: ask for ESPN access (once), then list the league's teams. */
+  const followingF1 = $derived(settings.teams.some(isRacing));
+
   function showTeams(e: SubmitEvent) {
     e.preventDefault();
     error = '';
+    if (league === F1.league) {
+      followF1();
+      return;
+    }
     loading = true;
     const wanted = league;
     browser.permissions
@@ -52,6 +59,24 @@
       .finally(() => (loading = false));
   }
 
+  /** Formula 1 is one entry, no team to pick; results come from Jolpica (asked for once). */
+  function followF1() {
+    if (followingF1) return;
+    loading = true;
+    browser.permissions
+      .request({ origins: RACING_ORIGINS })
+      .then(async (granted) => {
+        if (!granted) {
+          error =
+            'Formula 1 needs permission to reach Jolpica (api.jolpi.ca), where results come from.';
+          return;
+        }
+        await onpatch({ teams: [...plainTeams(), { ...F1 }] });
+      })
+      .catch((err: unknown) => (error = err instanceof Error ? err.message : String(err)))
+      .finally(() => (loading = false));
+  }
+
   function follow() {
     const team = teams?.find((t) => t.id === chosen);
     if (!team || settings.teams.some((t) => teamKey(t) === teamKey(team))) return;
@@ -60,16 +85,20 @@
 </script>
 
 <p class="hint">
-  Shown under the markets box: each team’s last result and next game, live while they play. With
-  more than one, use the arrows on the box to cycle through them. Scores come from ESPN
-  (unofficial), checked every few minutes during a game.
+  Shown under the markets box: each team’s last result and next game, live while they play (Formula
+  1: the last race’s top three and the next race). With more than one, use the arrows on the box to
+  cycle through them. Scores come from ESPN (unofficial), checked every few minutes during a game;
+  Formula 1 from Jolpica (community-run).
 </p>
 
 {#if settings.teams.length}
   <ul class="teams" aria-label="Your teams">
     {#each settings.teams as t, i (teamKey(t))}
       <li>
-        <span><strong>{t.name}</strong> <span class="league">{leagueName(t.league)}</span></span>
+        <span
+          ><strong>{t.name}</strong>
+          {#if !isRacing(t)}<span class="league">{leagueName(t.league)}</span>{/if}</span
+        >
         <span class="tools">
           <button
             type="button"
@@ -107,7 +136,13 @@
         {#each LEAGUES as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
       </select>
     </label>
-    <button type="submit" disabled={loading}>{loading ? 'Loading…' : 'Show teams'}</button>
+    {#if league === F1.league}
+      <button type="submit" disabled={loading || followingF1}
+        >{followingF1 ? 'Following Formula 1' : loading ? 'Asking…' : 'Follow Formula 1'}</button
+      >
+    {:else}
+      <button type="submit" disabled={loading}>{loading ? 'Loading…' : 'Show teams'}</button>
+    {/if}
   </form>
   {#if teams && teamsFor === league}
     <div class="pick">

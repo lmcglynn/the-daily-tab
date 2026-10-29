@@ -1,6 +1,7 @@
 import type { Plugin } from 'vite';
 import { defineConfig } from 'wxt';
 import { MARKET_ORIGINS } from './src/lib/extras/market';
+import { RACING_ORIGINS } from './src/lib/extras/racing';
 import { SPORTS_ORIGINS } from './src/lib/extras/scores';
 import { WEATHER_ORIGINS } from './src/lib/extras/weather';
 import { originPatterns, starterFeeds } from './src/lib/seed';
@@ -56,6 +57,7 @@ export default defineConfig({
         ...WEATHER_ORIGINS,
         ...MARKET_ORIGINS,
         ...SPORTS_ORIGINS,
+        ...RACING_ORIGINS,
       ],
     }),
   }),

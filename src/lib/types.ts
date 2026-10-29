@@ -176,6 +176,46 @@ export interface ScoreReport {
   next?: Game | null;
 }
 
+export interface PodiumPlace {
+  position: number;
+  /** "Andrea Kimi Antonelli" */
+  driver: string;
+  /** "Antonelli" */
+  family: string;
+  /** "Mercedes" */
+  constructor: string;
+}
+
+/** A Formula 1 race (lib/extras/racing.ts). */
+export interface Race {
+  /** "United States Grand Prix" */
+  name: string;
+  /** Race start. */
+  date: number;
+  circuit: string;
+  city: string;
+  country: string;
+  /** Top three, for a race that has been run. */
+  podium: PodiumPlace[];
+  /** Every driver's family name and constructor in the result (spoiler words). */
+  field: string[];
+}
+
+/** Formula 1, cached with the scores (key "racing/f1:0"). */
+export interface RaceReport {
+  at: number;
+  key: string;
+  kind: 'race';
+  lastRace: Race | null;
+  nextRace: Race | null;
+}
+
+/** What the scores cache holds for one followed entry. */
+export type SportsReport = ScoreReport | RaceReport;
+
+export const isRaceReport = (r: SportsReport | undefined): r is RaceReport =>
+  (r as RaceReport | undefined)?.kind === 'race';
+
 export type Theme = 'system' | 'day' | 'night';
 export type PhotoStyle = 'ink' | 'color';
 
