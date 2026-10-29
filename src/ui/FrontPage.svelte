@@ -2,6 +2,7 @@
   import FirstRun from './FirstRun.svelte';
   import Masthead from './Masthead.svelte';
   import type { FrontPageView, SectionChoice } from './model';
+  import Scores from './Scores.svelte';
   import Story from './Story.svelte';
   import Ticker from './Ticker.svelte';
 
@@ -101,17 +102,22 @@
             variant="lead"
             {onopen}
             {onsave}
-            extras={view.leadColumn.length || view.markets.length ? leadExtras : undefined}
+            extras={view.leadColumn.length || view.markets.length || view.scores.length
+              ? leadExtras
+              : undefined}
           />
         </div>
       {/if}
 
       {#snippet leadExtras()}
         {#if view.markets.length}<Ticker markets={view.markets} />{/if}
+        {#if view.scores.length}
+          <div class:after-box={view.markets.length > 0}><Scores scores={view.scores} /></div>
+        {/if}
         {#if view.leadColumn.length}
           <section
             class="lead-column"
-            class:after-markets={view.markets.length > 0}
+            class:after-box={view.markets.length > 0 || view.scores.length > 0}
             aria-labelledby="also-today"
           >
             <h2 class="column-label" id="also-today">Also today</h2>
@@ -332,7 +338,7 @@
     border-top: 1px solid var(--rule);
     padding-top: 10px;
   }
-  .lead-column.after-markets {
+  .after-box {
     margin-top: 16px;
   }
   .column-label {

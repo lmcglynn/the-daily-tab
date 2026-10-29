@@ -141,12 +141,13 @@
       void getFeeds().then((feeds) => snap && (snap = { ...snap, feeds }));
     }
     // Weather and quotes update in place (fixed-size boxes; nothing reflows).
-    if (area === 'local' && (changes.weather || changes.markets)) {
-      const { weather, markets } = localExtras({
+    if (area === 'local' && (changes.weather || changes.markets || changes.scores)) {
+      const { weather, markets, scores } = localExtras({
         weather: changes.weather ? changes.weather.newValue : snap.weather,
         markets: changes.markets ? changes.markets.newValue : snap.markets,
+        scores: changes.scores ? changes.scores.newValue : snap.scores,
       });
-      snap = { ...snap, weather, markets };
+      snap = { ...snap, weather, markets, scores };
     }
     // Saved in another tab.
     if (area === 'local' && changes[CLIPPINGS_KEY]) {

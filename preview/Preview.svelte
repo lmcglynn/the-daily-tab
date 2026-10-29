@@ -44,6 +44,7 @@
       online: pageState !== 'offline',
       weather: fx.weather,
       markets: fx.markets,
+      scores: fx.scores,
       clippings: pageState === 'firstrun' ? [] : clippings,
     }),
   );

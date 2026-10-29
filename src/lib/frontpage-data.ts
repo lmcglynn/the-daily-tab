@@ -11,6 +11,7 @@ import type {
   FeedState,
   Item,
   MarketReport,
+  ScoreReport,
   Settings,
   WeatherReport,
 } from './types';
@@ -29,6 +30,8 @@ export interface Snapshot {
   markets: Record<string, MarketReport>;
   /** Saved stories, newest first. */
   clippings: Clipping[];
+  /** Scores by league:id. */
+  scores: Record<string, ScoreReport>;
 }
 
 /** Pull the storage.local values the front page uses, tolerating anything malformed. */
@@ -48,7 +51,17 @@ export function localExtras(local: Record<string, unknown>) {
     weather: weather && typeof weather.temp === 'number' ? weather : null,
     markets,
     clippings: asClippings(local.clippings),
+    scores: asScores(local.scores),
   };
+}
+
+function asScores(v: unknown): Record<string, ScoreReport> {
+  const out: Record<string, ScoreReport> = {};
+  if (!v || typeof v !== 'object') return out;
+  for (const [key, r] of Object.entries(v as Record<string, ScoreReport>)) {
+    if (r && typeof r.at === 'number' && ('last' in r || 'current' in r)) out[key] = r;
+  }
+  return out;
 }
 
 /** What public/prefetch.js leaves on globalThis.__dailyTabPrefetch. */

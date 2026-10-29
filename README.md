@@ -79,17 +79,28 @@ Extension options** on the extensions page. There you can:
 - add any news site or feed (paste its address; the feed is found for you), rename, reorder and
   regroup feeds and sections, or import and export an OPML file;
 - set the paper's name, day or night edition, photo style, accent color and refresh interval;
+- mute topics: stories whose headline or summary mentions a word or phrase you choose are left
+  off the page;
 - add pinned links under the masthead;
-- set a city for the weather (°F or °C) and choose the tickers in the markets box.
+- set a city for the weather (°F or °C), choose the tickers in the markets box, and follow teams
+  (NFL, NBA, WNBA, MLB, NHL, MLS, Premier League) in the scores box, live while they play.
+
+Settings also notes any feed that still works but has stopped publishing.
 
 If browser sync is on, your feeds and settings follow you to other computers where you've
 installed the extension.
 
 ## Keyboard shortcuts
 
-On the front page: **j** / **k** move between stories, **o** or **Enter** opens one, **n** shows a
-new edition when one is waiting, and **r** refreshes now. If the address bar has focus on a new
-tab, click the page first.
+On the front page: **j** / **k** move between stories, **o** or **Enter** opens one, **s** saves it
+to your Clippings (or removes it), **n** shows a new edition when one is waiting, and **r**
+refreshes now. If the address bar has focus on a new tab, click the page first.
+
+## Clippings
+
+Point at a story and click **Save** next to its byline (or press **s**) to keep it. Saved stories
+are listed under **Clippings** at the foot of the page, linked from the section index, and stay
+there after the story itself drops off the paper. They're kept on this computer only.
 
 ## Updating
 

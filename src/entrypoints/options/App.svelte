@@ -37,6 +37,7 @@
   import MutedTopics from './MutedTopics.svelte';
   import OpmlTools from './OpmlTools.svelte';
   import PinnedLinks from './PinnedLinks.svelte';
+  import SportsTeams from './SportsTeams.svelte';
   import WeatherMarket from './WeatherMarket.svelte';
 
   const db = getDB();
@@ -434,6 +435,18 @@
           onpatch={async (patch) => {
             await patchSettings(patch);
             // Removing a place or the S&P 500 box gives its host access back.
+            await releaseUnused(feeds);
+          }}
+        />
+      </section>
+
+      <section aria-labelledby="scores-h">
+        <h2 id="scores-h">Scores</h2>
+        <SportsTeams
+          {settings}
+          onpatch={async (patch) => {
+            await patchSettings(patch);
+            // Following no teams gives ESPN access back.
             await releaseUnused(feeds);
           }}
         />

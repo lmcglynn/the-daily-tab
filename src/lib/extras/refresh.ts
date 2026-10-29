@@ -1,14 +1,20 @@
 // Weather and market data ride along with each feed refresh. Results go to storage.local
 // (they change often; storage.sync has write limits) where the new tab reads them.
-import type { MarketReport, Settings, WeatherReport } from '../types';
+import type { MarketReport, ScoreReport, Settings, WeatherReport } from '../types';
 import { fetchQuote, MARKET_ORIGINS } from './market';
+import { fetchScores, isLiveOrSoon, SPORTS_ORIGINS, teamKey } from './scores';
 import { fetchWeather, reportMatches, WEATHER_ORIGINS } from './weather';
 
 export const WEATHER_KEY = 'weather';
 /** Record<symbol, MarketReport> */
 export const MARKETS_KEY = 'markets';
+/** Record<league:id, ScoreReport> */
+export const SCORES_KEY = 'scores';
 const WEATHER_EVERY_MS = 25 * 60_000;
 const MARKET_EVERY_MS = 10 * 60_000;
+const SCORES_EVERY_MS = 10 * 60_000;
+/** While a followed team is playing (or about to). */
+const LIVE_SCORES_EVERY_MS = 90_000;
 
 export interface ExtrasDeps {
   settings: Settings;
@@ -17,7 +23,11 @@ export interface ExtrasDeps {
   /** Re-fetch even if the cache is fresh (settings just changed, manual refresh). */
   force?: boolean;
   hasAccess: (origins: string[]) => Promise<boolean>;
-  read: () => Promise<{ weather?: WeatherReport; markets?: Record<string, MarketReport> }>;
+  read: () => Promise<{
+    weather?: WeatherReport;
+    markets?: Record<string, MarketReport>;
+    scores?: Record<string, ScoreReport>;
+  }>;
   write: (patch: Record<string, unknown>) => Promise<void>;
 }
 
@@ -26,10 +36,16 @@ export function extrasOrigins(settings: Settings): string[] {
   return [
     ...(settings.weatherPlace ? WEATHER_ORIGINS : []),
     ...(settings.tickers.length ? MARKET_ORIGINS : []),
+    ...(settings.teams.length ? SPORTS_ORIGINS : []),
   ];
 }
 
-export async function refreshExtras(deps: ExtrasDeps): Promise<void> {
+export interface ExtrasResult {
+  /** A followed team is playing or about to: check again in a couple of minutes. */
+  liveScores: boolean;
+}
+
+export async function refreshExtras(deps: ExtrasDeps): Promise<ExtrasResult> {
   const { settings, now } = deps;
   const cached = await deps.read();
   const patch: Record<string, unknown> = {};
@@ -69,5 +85,34 @@ export async function refreshExtras(deps: ExtrasDeps): Promise<void> {
   }
   if (changed) patch[MARKETS_KEY] = markets;
 
+  // Scores: same pattern, with a short window while a game is on.
+  const scoresBefore = cached.scores ?? {};
+  const scores: Record<string, ScoreReport> = {};
+  for (const t of settings.teams) {
+    const r = scoresBefore[teamKey(t)];
+    if (r) scores[teamKey(t)] = r;
+  }
+  const staleTeams = settings.teams.filter((t) => {
+    const r = scores[teamKey(t)];
+    if (deps.force || !r) return true;
+    return now - r.at >= (isLiveOrSoon(r, now) ? LIVE_SCORES_EVERY_MS : SCORES_EVERY_MS);
+  });
+  let scoresChanged = Object.keys(scores).length !== Object.keys(scoresBefore).length;
+  if (staleTeams.length && (await deps.hasAccess(SPORTS_ORIGINS))) {
+    const results = await Promise.allSettled(
+      staleTeams.map((t) => fetchScores(deps.fetch, t, now)),
+    );
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') {
+        scores[r.value.key] = r.value;
+        scoresChanged = true;
+      } else {
+        console.warn(`[daily-tab] scores unavailable for ${staleTeams[i]!.name}`, r.reason);
+      }
+    });
+  }
+  if (scoresChanged) patch[SCORES_KEY] = scores;
+
   if (Object.keys(patch).length) await deps.write(patch);
+  return { liveScores: Object.values(scores).some((r) => isLiveOrSoon(r, now)) };
 }

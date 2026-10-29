@@ -126,6 +126,45 @@ export interface MarketReport {
   points: number[];
 }
 
+/** A team the reader follows in the scores box (ESPN ids). */
+export interface SportsTeam {
+  /** ESPN sport/league path, e.g. "basketball/nba" (see lib/extras/scores.ts LEAGUES). */
+  league: string;
+  id: string;
+  /** "Los Angeles Lakers" */
+  name: string;
+  abbr: string;
+}
+
+export interface GameSide {
+  id: string;
+  /** Short name, e.g. "Lakers". */
+  name: string;
+  abbr: string;
+  score?: number;
+  winner?: boolean;
+}
+
+export interface Game {
+  id: string;
+  date: number;
+  state: 'pre' | 'in' | 'post';
+  /** ESPN's short status: "Final", "Final/OT", "FT", "Q3 4:12", "Top 5th"… */
+  detail: string;
+  home: GameSide;
+  away: GameSide;
+}
+
+/** Latest scores for one followed team, cached by the background in chrome.storage.local. */
+export interface ScoreReport {
+  at: number;
+  /** league:id */
+  key: string;
+  last: Game | null;
+  /** The next game, or the one in progress. */
+  current: Game | null;
+}
+
 export type Theme = 'system' | 'day' | 'night';
 export type PhotoStyle = 'ink' | 'color';
 
@@ -152,4 +191,6 @@ export interface Settings {
   tickers: Ticker[];
   /** Words and phrases whose stories are left off the front page (see lib/mute.ts). */
   mutedWords: string[];
+  /** Scores box under the markets, in display order; empty hides it. */
+  teams: SportsTeam[];
 }

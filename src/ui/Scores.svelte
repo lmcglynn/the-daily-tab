@@ -1,0 +1,204 @@
+<script lang="ts">
+  import type { ScoreView } from './model';
+
+  let { scores }: { scores: ScoreView[] } = $props();
+
+  // Which team the reader last looked at (a per-browser convenience; safe to lose).
+  const KEY = 'daily-tab:scores';
+
+  const remembered = () => {
+    try {
+      return localStorage.getItem(KEY);
+    } catch {
+      return null;
+    }
+  };
+
+  let key = $state<string | null>(remembered());
+  const index = $derived(
+    Math.max(
+      0,
+      scores.findIndex((s) => s.key === key),
+    ),
+  );
+  const game = $derived(scores[index]!);
+  const many = $derived(scores.length > 1);
+
+  function go(step: number) {
+    const next = scores[(index + step + scores.length) % scores.length]!;
+    key = next.key;
+    try {
+      localStorage.setItem(KEY, next.key);
+    } catch {
+      /* storage blocked: still cycles, just isn't remembered */
+    }
+  }
+
+  function onkeydown(e: KeyboardEvent) {
+    if (!many || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.key === 'ArrowLeft') go(-1);
+    else if (e.key === 'ArrowRight') go(1);
+    else return;
+    e.preventDefault();
+  }
+
+  const neighbour = (step: number) => scores[(index + step + scores.length) % scores.length]!.team;
+</script>
+
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<section
+  class="scores"
+  aria-roledescription={many ? 'carousel' : undefined}
+  aria-label="Scores"
+  {onkeydown}
+>
+  <div class="head">
+    <h2 class="label">Scores</h2>
+    {#if many}
+      <div class="controls">
+        <button type="button" aria-label="Previous: {neighbour(-1)}" onclick={() => go(-1)}
+          >‹</button
+        >
+        <span class="pos" aria-hidden="true">{index + 1} of {scores.length}</span>
+        <button type="button" aria-label="Next: {neighbour(1)}" onclick={() => go(1)}>›</button>
+      </div>
+    {/if}
+  </div>
+
+  <div class="game" aria-live={many ? 'polite' : undefined}>
+    <span class="visually-hidden">{game.label}</span>
+    <div class="row" aria-hidden="true">
+      <span class="team">{game.team}</span>
+      {#if game.score}<span class="score">{game.score}</span>{/if}
+    </div>
+    <div class="row line" aria-hidden="true">
+      <span class="result-line">
+        {#if game.result}<span class="result" class:live={game.live}>{game.result}</span
+          >{/if}{game.opponent}
+      </span>
+      <span class="status">{game.status}</span>
+    </div>
+    <!-- Always present, so every team is the same height and cycling never reflows. -->
+    <p class="next" aria-hidden="true">{game.next || ' '}</p>
+  </div>
+</section>
+
+<style>
+  /* Matches the markets box (Ticker.svelte) so the two read as a pair. */
+  .scores {
+    padding: 7px 0 8px;
+    border-top: 2px solid var(--rule-ink);
+    border-bottom: 1px solid var(--rule-ink);
+    font-family: var(--font-label);
+    color: var(--ink);
+  }
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    /* As tall as the arrows, with or without them: markets and scores always match. */
+    min-height: 22px;
+    margin-bottom: 6px;
+  }
+  .label {
+    font: 700 10.5px/1.4 var(--font-label);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .controls button {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    font: 700 16px/1 var(--font-head);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+  }
+  .controls button:hover {
+    border-color: var(--rule-ink);
+  }
+  .pos {
+    min-width: 3.6em;
+    text-align: center;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    /* The markets box's price line: 19px type at 1.2. */
+    min-height: calc(19px * 1.2);
+  }
+  /* The markets box's sparkline row is 34px; this one matches it. */
+  .line {
+    min-height: 34px;
+  }
+  .team {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .score {
+    flex: none;
+    font: 700 19px/1.2 var(--font-head);
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+  .result-line {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+  .result {
+    display: inline-block;
+    min-width: 1.6em;
+    margin-right: 6px;
+    padding: 1px 4px;
+    border: 1px solid var(--rule-ink);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-align: center;
+    text-transform: uppercase;
+  }
+  .result.live {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+  .status {
+    flex: none;
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+  .next {
+    margin-top: 4px;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>

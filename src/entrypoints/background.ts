@@ -3,7 +3,8 @@ import { getDB } from '@/lib/db';
 import { publishEdition } from '@/lib/edition/publish';
 import { refreshFeeds, type RefreshReport } from '@/lib/engine/refresh';
 import { lookupTicker } from '@/lib/extras/market';
-import { MARKETS_KEY, WEATHER_KEY, refreshExtras } from '@/lib/extras/refresh';
+import { MARKETS_KEY, SCORES_KEY, WEATHER_KEY, refreshExtras } from '@/lib/extras/refresh';
+import { fetchTeams } from '@/lib/extras/scores';
 import { geocode } from '@/lib/extras/weather';
 import { discoverFeeds } from '@/lib/feed/discover';
 import type { Broadcast, Request } from '@/lib/messages';
@@ -11,6 +12,8 @@ import { STARTER_SECTIONS, starterFeeds } from '@/lib/seed';
 import { getFeeds, getSettings, isFeedKey, saveFeeds, saveSettings } from '@/lib/storage';
 
 const ALARM = 'refresh';
+/** One-off, while a followed team is playing: keeps the scores box current between refreshes. */
+const SCORES_ALARM = 'scores';
 
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(async ({ reason }) => {
@@ -25,6 +28,7 @@ export default defineBackground(() => {
 
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === ALARM) void runRefresh(false);
+    if (alarm.name === SCORES_ALARM) void runExtras(false);
   });
 
   browser.runtime.onMessage.addListener((msg: Request, _sender, sendResponse) => {
@@ -57,21 +61,28 @@ export default defineBackground(() => {
 });
 
 const extrasKey = (v: unknown) => {
-  const s = (v ?? {}) as { weatherPlace?: unknown; units?: unknown; tickers?: unknown };
-  return JSON.stringify([s.weatherPlace ?? null, s.units ?? 'f', s.tickers ?? []]);
+  const s = (v ?? {}) as {
+    weatherPlace?: unknown;
+    units?: unknown;
+    tickers?: unknown;
+    teams?: unknown;
+  };
+  return JSON.stringify([s.weatherPlace ?? null, s.units ?? 'f', s.tickers ?? [], s.teams ?? []]);
 };
 
 async function runExtras(force: boolean): Promise<void> {
   try {
-    await refreshExtras({
+    const { liveScores } = await refreshExtras({
       settings: await getSettings(),
       fetch: (input, init) => fetch(input, init),
       now: Date.now(),
       force,
       hasAccess: (origins) => browser.permissions.contains({ origins }),
-      read: () => browser.storage.local.get([WEATHER_KEY, MARKETS_KEY]),
+      read: () => browser.storage.local.get([WEATHER_KEY, MARKETS_KEY, SCORES_KEY]),
       write: (patch) => browser.storage.local.set(patch),
     });
+    if (liveScores) await browser.alarms.create(SCORES_ALARM, { delayInMinutes: 2 });
+    else await browser.alarms.clear(SCORES_ALARM);
   } catch (e) {
     console.warn('[daily-tab] weather/market refresh failed', e);
   }
@@ -179,6 +190,12 @@ async function handle(msg: Request): Promise<unknown> {
     case 'quote':
       try {
         return { ticker: await lookupTicker((i, init) => fetch(i, init), msg.symbol) };
+      } catch (e) {
+        return { error: e instanceof Error ? e.message : String(e) };
+      }
+    case 'teams':
+      try {
+        return { teams: await fetchTeams((i, init) => fetch(i, init), msg.league) };
       } catch (e) {
         return { error: e instanceof Error ? e.message : String(e) };
       }

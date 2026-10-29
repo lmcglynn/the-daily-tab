@@ -1,6 +1,7 @@
+import { LEAGUE_IDS, TEAM_ID, teamKey } from './extras/scores';
 import { cleanMutedWords } from './mute';
 import { STARTER_SECTIONS } from './seed';
-import type { PinnedLink, Settings, Ticker, WeatherPlace } from './types';
+import type { PinnedLink, Settings, SportsTeam, Ticker, WeatherPlace } from './types';
 
 export const DEFAULT_SPOT = '#A4161A';
 
@@ -17,6 +18,7 @@ export const DEFAULT_SETTINGS: Settings = {
   units: 'f',
   tickers: [],
   mutedWords: [],
+  teams: [],
 };
 
 function asPlace(v: unknown): WeatherPlace | null {
@@ -74,7 +76,31 @@ export function normalizeSettings(raw: unknown): Settings {
     units: r.units === 'c' ? 'c' : 'f',
     tickers: asTickers(r),
     mutedWords: cleanMutedWords(asArray(r.mutedWords) ?? []),
+    teams: asTeams(r.teams),
   };
+}
+
+export const MAX_TEAMS = 8;
+
+function asTeams(v: unknown): SportsTeam[] {
+  const out: SportsTeam[] = [];
+  for (const t of asArray(v) ?? []) {
+    if (!t || typeof t !== 'object') continue;
+    const { league, id, name, abbr } = t as Partial<SportsTeam>;
+    if (typeof league !== 'string' || !LEAGUE_IDS.has(league)) continue;
+    if (typeof id !== 'string' || !TEAM_ID.test(id) || typeof name !== 'string' || !name.trim()) {
+      continue;
+    }
+    const team = {
+      league,
+      id,
+      name: name.trim().slice(0, 60),
+      abbr: String(abbr ?? '').slice(0, 8),
+    };
+    if (out.some((o) => teamKey(o) === teamKey(team))) continue;
+    out.push(team);
+  }
+  return out.slice(0, MAX_TEAMS);
 }
 
 /** Yahoo symbols: AAPL, ^GSPC, BRK-B, BTC-USD, EURUSD=X, 7203.T … */

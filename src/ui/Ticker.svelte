@@ -125,6 +125,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    /* As tall as the arrows, with or without them: markets and scores always match. */
+    min-height: 22px;
     margin-bottom: 6px;
   }
   .label {

@@ -12,7 +12,7 @@ the same build. Firefox is out of scope.
 - Dexie (IndexedDB): items, editions, feed fetch state.
 - `chrome.storage.sync`: settings (`settings` key) and the feed list (one key per feed, `feed:<id>`).
 - `chrome.storage.local`: `lastVisitAt` (changes on every new tab), `clippings` (saved stories,
-  self-contained copies so they outlive pruned items; per device), `weather`, `markets`.
+  self-contained copies so they outlive pruned items; per device), `weather`, `markets`, `scores`.
 - `chrome.alarms` for scheduled refresh (default 15 min).
 - Vitest + fake-indexeddb for tests. ESLint (flat config) + Prettier.
 - Fonts from Fontsource, Latin-subset woff2 only, declared by hand in `src/styles/fonts.css`.
@@ -50,9 +50,10 @@ Verification against real Edge (headless, throwaway profile, driven over CDP by 
   `scripts/verify-newtab.mjs`. Find the worker with `findExtensionWorker()`, not by URL.
 - `LIVE=1 npx vitest run tests/live.test.ts --disableConsoleIntercept`: engine against the real
   starter feeds.
-- LA Times (HTTP 403) and Washington Post (no response) refuse headless Edge but work in a normal
-  Edge window and from Node, so expect them as failed feeds in the e2e checks. To test a
-  feed as a real reader would, launch with `launchEdge({ headless: false })`.
+- LA Times (HTTP 403), Washington Post (no response) and ESPN (HTTP 403, scores) refuse headless
+  Edge but work in a normal Edge window and from Node, so expect them as failed feeds in the e2e
+  checks; verify:settings skips its scores steps. `HEADED=1` (read by `launchEdge`) runs any
+  script in a real window, e.g. `npm run build:e2e && HEADED=1 node scripts/verify-settings.mjs`.
 
 Node is installed machine-wide (`C:\Program Files\nodejs`). In the Bash tool, prefix
 `export PATH="/c/Program Files/nodejs:$PATH"` if `node` is not found.
@@ -75,11 +76,16 @@ Node is installed machine-wide (`C:\Program Files\nodejs`). In the Bash tool, pr
   (`npm run size` follows static imports only). prefetch.js must never create the database.
 - Fonts: critical faces are preloaded by the `preloadFonts` plugin in `wxt.config.ts` and use
   `font-display: block`; add a new face to its regex if it appears above the fold.
-- Weather (Open-Meteo, no key) and the S&P 500 (Yahoo Finance chart endpoint, unofficial, no
-  key) live in `src/lib/extras/`. The background fetches them with each refresh (own freshness
-  windows; forced when the place, units or ticker setting changes) and caches them in
-  `chrome.storage.local` (`weather`, `markets`); the new tab only reads that cache. Their host
-  access is requested from Settings like feeds; `extrasOrigins()` keeps it from being released.
+- Weather (Open-Meteo, no key), market quotes (Yahoo Finance chart endpoint, unofficial, no key)
+  and scores (ESPN site API, unofficial, no key) live in `src/lib/extras/`. The background
+  fetches them with each refresh (own freshness windows; forced when the place, units, tickers
+  or teams change) and caches them in `chrome.storage.local` (`weather`, `markets`, `scores`);
+  the new tab only reads that cache. While a followed team is playing, a one-off `scores` alarm
+  re-checks every 2 minutes. Their host access is requested from Settings like feeds;
+  `extrasOrigins()` keeps it from being released.
+- Muted topics (`settings.mutedWords`, `lib/mute.ts`) are applied when composing and in
+  "More in …"; the background recomposes when they change. Outlets are feeds with the same title
+  (`outletKey`): coverage and variety count outlets, grouping still joins any two feeds.
 - Never hand a Svelte `$state` value straight to `chrome.storage`: a Proxy is stored as
   `{"0": …}`. Pass plain copies (`$state.snapshot`); `normalizeSettings()` repairs on read/write.
 - The background service worker owns all network work. The new tab never fetches feeds; it reads

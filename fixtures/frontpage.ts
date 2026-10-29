@@ -14,6 +14,7 @@ import type {
   FeedState,
   Item,
   MarketReport,
+  ScoreReport,
   Settings,
   WeatherReport,
 } from '@/lib/types';
@@ -315,6 +316,10 @@ export const settings: Settings = {
     { symbol: '^DJI', name: 'Dow' },
     { symbol: 'AAPL', name: 'Apple Inc.' },
   ],
+  teams: [
+    { league: 'basketball/nba', id: '13', name: 'Los Angeles Lakers', abbr: 'LAL' },
+    { league: 'football/nfl', id: '14', name: 'Los Angeles Rams', abbr: 'LAR' },
+  ],
 };
 
 export const lastVisitAt = at(8, 10);
@@ -400,3 +405,55 @@ export const clippings: Clipping[] = [
     savedAt: NOW - 5 * 86_400_000,
   },
 ];
+
+const side = (id: string, name: string, abbr: string, score?: number, winner?: boolean) => ({
+  id,
+  name,
+  abbr,
+  ...(score !== undefined && { score }),
+  ...(winner && { winner }),
+});
+
+/** Last night's loss and tomorrow's game; Sunday's win and next Sunday's. */
+export const scores: Record<string, ScoreReport> = {
+  'basketball/nba:13': {
+    at: NOW - 5 * 60_000,
+    key: 'basketball/nba:13',
+    last: {
+      id: 'g1',
+      date: at(19, 0, -1),
+      state: 'post',
+      detail: 'Final',
+      home: side('13', 'Lakers', 'LAL', 129),
+      away: side('22', 'Trail Blazers', 'POR', 136, true),
+    },
+    current: {
+      id: 'g2',
+      date: at(19, 30, 1),
+      state: 'pre',
+      detail: '10/28 - 10:30 PM EDT',
+      home: side('12', 'Clippers', 'LAC'),
+      away: side('13', 'Lakers', 'LAL'),
+    },
+  },
+  'football/nfl:14': {
+    at: NOW - 5 * 60_000,
+    key: 'football/nfl:14',
+    last: {
+      id: 'g3',
+      date: at(13, 25, -2),
+      state: 'post',
+      detail: 'Final',
+      home: side('13', 'Raiders', 'LV', 21),
+      away: side('14', 'Rams', 'LAR', 35, true),
+    },
+    current: {
+      id: 'g4',
+      date: at(13, 5, 5),
+      state: 'pre',
+      detail: '11/1 - 4:05 PM EST',
+      home: side('14', 'Rams', 'LAR'),
+      away: side('24', 'Chargers', 'LAC'),
+    },
+  },
+};

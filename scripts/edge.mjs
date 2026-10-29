@@ -11,7 +11,12 @@ export const EDGE_PATH =
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Launch Edge headless, optionally with an unpacked extension. */
-export async function launchEdge({ extensionDir, port = 9333, headless = true } = {}) {
+export async function launchEdge({
+  extensionDir,
+  port = 9333,
+  // HEADED=1 shows a real window: some sites (ESPN, LA Times) refuse headless Edge.
+  headless = process.env.HEADED !== '1',
+} = {}) {
   if (!existsSync(EDGE_PATH)) throw new Error(`Edge not found at ${EDGE_PATH}`);
   const profile = mkdtempSync(join(tmpdir(), 'daily-tab-edge-'));
   const args = [

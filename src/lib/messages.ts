@@ -1,6 +1,6 @@
 import type { DiscoveredFeed } from './feed/discover';
 import type { RefreshReport } from './engine/refresh';
-import type { Ticker, WeatherPlace } from './types';
+import type { SportsTeam, Ticker, WeatherPlace } from './types';
 
 /** Requests to the background service worker. */
 export type Request =
@@ -8,6 +8,7 @@ export type Request =
   | { type: 'discover'; url: string }
   | { type: 'geocode'; query: string }
   | { type: 'quote'; symbol: string }
+  | { type: 'teams'; league: string }
   | { type: 'compose' };
 
 export type Response<R extends Request> = R extends { type: 'refresh' }
@@ -18,9 +19,11 @@ export type Response<R extends Request> = R extends { type: 'refresh' }
       ? { places: WeatherPlace[] } | { error: string }
       : R extends { type: 'quote' }
         ? { ticker: Ticker | null } | { error: string }
-        : R extends { type: 'compose' }
-          ? { editionId: string | null }
-          : never;
+        : R extends { type: 'teams' }
+          ? { teams: SportsTeam[] } | { error: string }
+          : R extends { type: 'compose' }
+            ? { editionId: string | null }
+            : never;
 
 /** Broadcasts from the background to open pages. */
 export type Broadcast =

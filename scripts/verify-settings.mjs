@@ -64,7 +64,8 @@ try {
   // Every starter origin is granted in the e2e build. Some sites refuse headless Edge, so
   // "Failed …" is a fair status here; "Needs permission" is not.
   check(
-    statuses.length === rows && statuses.every((s) => /^(Updated|Not fetched|Failed)/.test(s)),
+    statuses.length === rows &&
+      statuses.every((s) => /^(Updated|Not fetched|Failed|Working, but no new stories)/.test(s)),
     `feed status lines (e.g. "${statuses[0]}")`,
   );
 
@@ -265,7 +266,7 @@ try {
     place?.name === 'Seattle' && Array.isArray((await sync()).settings.sections),
     `place saved (${place?.name}, ${place?.region}); sections still an array`,
   );
-  const local = () => page.eval(`chrome.storage.local.get(['weather', 'markets'])`);
+  const local = () => page.eval(`chrome.storage.local.get(['weather', 'markets', 'scores'])`);
   let w = null;
   for (let i = 0; i < 40 && !w; i++) {
     await sleep(250);
@@ -327,6 +328,54 @@ try {
   }
   check(wc?.units === 'c', `weather refetched in °C: ${wc?.temp}°C`);
 
+  step('scores: follow the Lakers (live ESPN)');
+  await setValue('form.pick select', 'basketball/nba');
+  await gesture(`document.querySelector('form.pick').requestSubmit()`);
+  let teamOptions = [];
+  for (let i = 0; i < 40 && teamOptions.length === 0; i++) {
+    await sleep(250);
+    teamOptions = await page.eval(
+      `[...document.querySelectorAll('.pick:not(form) select option')].map((o) => [o.value, o.textContent.trim()])`,
+    );
+  }
+  const pageErrors = await page.eval(
+    `[...document.querySelectorAll('.error')].map((e) => e.textContent).join(' | ')`,
+  );
+  // ESPN answers a normal Edge window but refuses headless Edge (as LA Times does).
+  const espnRefused = teamOptions.length === 0 && /NBA teams: HTTP 403/.test(pageErrors);
+  if (espnRefused) {
+    console.log(
+      'skip ESPN refuses headless Edge (HTTP 403); run: HEADED=1 npm run verify:settings',
+    );
+  } else {
+    const lakersOption = teamOptions.find(([, name]) => name === 'Los Angeles Lakers');
+    check(
+      teamOptions.length === 30 && !!lakersOption,
+      `NBA teams listed (${teamOptions.length}, Lakers id ${lakersOption?.[0]}) ${pageErrors}`,
+    );
+    await setValue('.pick:not(form) select', lakersOption[0]);
+    await clickText('Follow');
+    await sleep(400);
+    const followed = (await sync()).settings.teams;
+    check(
+      followed.length === 1 && followed[0].name === 'Los Angeles Lakers',
+      `following ${followed.map((t) => `${t.name} (${t.league}:${t.id})`).join(', ')}`,
+    );
+    let report = null;
+    for (let i = 0; i < 40 && !report; i++) {
+      await sleep(250);
+      report = (await local()).scores?.[`basketball/nba:${lakersOption[0]}`] ?? null;
+    }
+    const show = (g) =>
+      g
+        ? `${g.away.abbr} ${g.away.score ?? ''} @ ${g.home.abbr} ${g.home.score ?? ''} ${g.detail}`
+        : '—';
+    check(
+      !!report && (!!report.last || !!report.current),
+      `scores fetched: last ${show(report?.last)}; next ${show(report?.current)}`,
+    );
+  }
+
   step('new tab shows the weather ear and cycles the markets box');
   const tab = await browser.newPage();
   await tab.navigate(`chrome-extension://${extId}/newtab.html`);
@@ -367,6 +416,19 @@ try {
   })()`);
   await sleep(150);
   check((await box())?.pos === '1 of 2', '→ key on the box wraps back to Apple');
+  const scoresBox = await tab.eval(`(() => {
+    const b = document.querySelector('.scores');
+    if (!b) return null;
+    const text = [...b.querySelectorAll('.game [aria-hidden=true]')].map((e) => e.innerText).join(' ').replace(/\\s+/g, ' ').trim();
+    return { text, h: b.getBoundingClientRect().height, label: b.querySelector('.visually-hidden')?.textContent };
+  })()`);
+  if (!espnRefused) {
+    check(
+      /^LOS ANGELES LAKERS/.test(scoresBox?.text ?? '') && scoresBox?.h === shown1?.h,
+      `scores box: "${scoresBox?.text}" (height ${scoresBox?.h}px, same as markets)`,
+    );
+    console.log(`     spoken: ${scoresBox?.label}`);
+  }
   tab.close();
   // The choice is remembered for the next tab.
   const tab2 = await browser.newPage();

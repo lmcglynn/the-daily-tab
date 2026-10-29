@@ -5,9 +5,12 @@ import type {
   Feed,
   FeedState,
   Item,
+  Game,
   MarketReport,
   PinnedLink,
+  ScoreReport,
   Settings,
+  SportsTeam,
   WeatherReport,
 } from '@/lib/types';
 import {
@@ -70,6 +73,24 @@ export interface MarketView {
   label: string;
 }
 
+export interface ScoreView {
+  key: string;
+  /** "Los Angeles Lakers" */
+  team: string;
+  /** "129–136", the team's score first; empty before a first result. */
+  score: string;
+  /** "W", "L", "T"/"D" (soccer), "Live", or empty. */
+  result: string;
+  /** "vs. Trail Blazers" / "at Clippers" */
+  opponent: string;
+  /** "Final", "Final · Tue", "Q3 4:12", or "No recent games". */
+  status: string;
+  /** "Next: Tonight at Clippers, 7:30 p.m." */
+  next: string;
+  live: boolean;
+  label: string;
+}
+
 /** First-run chooser: a section and the feeds that fill it. */
 export interface SectionChoice {
   name: string;
@@ -105,6 +126,8 @@ export interface FrontPageView {
   leadColumn: StoryView[];
   /** Markets box at the foot of the lead's text column (cycled with arrows). */
   markets: MarketView[];
+  /** Scores box under it, one followed team at a time. */
+  scores: ScoreView[];
   secondary: StoryView[];
   bands: BandView[];
   brief: StoryView[];
@@ -127,6 +150,7 @@ export interface FrontPageInput {
   weather?: WeatherReport | null;
   markets?: Record<string, MarketReport>;
   clippings?: Clipping[];
+  scores?: Record<string, ScoreReport>;
 }
 
 const WEATHER_MAX_AGE_MS = 6 * 60 * 60_000;
@@ -164,6 +188,108 @@ export function marketViews(
     const view = report ? marketView({ ...report, name: t.name || report.name }, now) : null;
     return view ? [view] : [];
   });
+}
+
+const SCORES_MAX_AGE_MS = 4 * 24 * 60 * 60_000;
+
+/** Teams in the reader's order; a team with no recent report is left out. */
+export function scoreViews(
+  scores: Record<string, ScoreReport> | undefined,
+  settings: Settings,
+  now: number,
+): ScoreView[] {
+  return settings.teams.flatMap((t) => {
+    const report = scores?.[`${t.league}:${t.id}`];
+    if (!report || now - report.at > SCORES_MAX_AGE_MS) return [];
+    if (!report.last && !report.current) return [];
+    return [scoreView(t, report, now)];
+  });
+}
+
+const dayStart = (t: number) => new Date(t).setHours(0, 0, 0, 0);
+const time12 = (t: number) => `${clock(t)} ${clockParts(t).meridiem}`;
+
+/** "Tonight, 7:30 p.m.", "Tomorrow, 4:05 p.m.", "Sun, 1:00 p.m.", "Nov 8, 4:05 p.m." */
+export function gameWhen(t: number, now: number): string {
+  const days = Math.round((dayStart(t) - dayStart(now)) / 86_400_000);
+  let day: string;
+  if (days === 0) day = new Date(t).getHours() >= 17 ? 'Tonight' : 'Today';
+  else if (days === 1) day = 'Tomorrow';
+  else if (days > 1 && days < 7)
+    day = new Date(t).toLocaleDateString('en-US', { weekday: 'short' });
+  else day = new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${day}, ${time12(t)}`;
+}
+
+/** "" for today, "Tue" this past week, "Oct 16" before that. */
+function playedOn(t: number, now: number): string {
+  const days = Math.round((dayStart(now) - dayStart(t)) / 86_400_000);
+  if (days <= 0) return '';
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return new Date(t).toLocaleDateString('en-US', { weekday: 'short' });
+  return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function sides(g: Game, teamId: string) {
+  const mine = g.home.id === teamId ? g.home : g.away;
+  const other = mine === g.home ? g.away : g.home;
+  const where = mine === g.home ? 'vs.' : 'at';
+  return { mine, other, opponent: `${where} ${other.name}` };
+}
+
+export function scoreView(team: SportsTeam, report: ScoreReport, now: number): ScoreView {
+  const live = report.current?.state === 'in' ? report.current : null;
+  const shown = live ?? report.last;
+  const upcoming = report.current?.state === 'pre' ? report.current : null;
+  const soccer = team.league.startsWith('soccer/');
+
+  let score = '';
+  let result = '';
+  let opponent = '';
+  let status = 'No recent games';
+  let spoken = `${team.name}: no recent games.`;
+  if (shown) {
+    const { mine, other, opponent: opp } = sides(shown, team.id);
+    opponent = opp;
+    const a = mine.score ?? 0;
+    const b = other.score ?? 0;
+    score = `${a}–${b}`;
+    if (live) {
+      result = 'Live';
+      status = `${shown.detail} · as of ${clock(report.at)}`;
+      spoken = `${team.name}, live: ${a} to ${b} ${opp}, ${shown.detail}.`;
+    } else {
+      result = mine.winner
+        ? 'W'
+        : other.winner
+          ? 'L'
+          : a === b
+            ? soccer
+              ? 'D'
+              : 'T'
+            : a > b
+              ? 'W'
+              : 'L';
+      const on = playedOn(shown.date, now);
+      status = on ? `${shown.detail} · ${on}` : shown.detail;
+      const verb = result === 'W' ? 'won' : result === 'L' ? 'lost' : 'drew';
+      spoken = `${team.name} ${verb} ${a} to ${b} ${opp}, ${status.replace(' · ', ', ')}.`;
+    }
+  }
+  const next = upcoming
+    ? `Next: ${gameWhen(upcoming.date, now).replace(', ', ` ${sides(upcoming, team.id).opponent}, `)}`
+    : '';
+  return {
+    key: `${team.league}:${team.id}`,
+    team: team.name,
+    score,
+    result,
+    opponent,
+    status,
+    next,
+    live: !!live,
+    label: next ? `${spoken} ${next.replace(/\.$/, '')}.` : spoken,
+  };
 }
 
 const zoneLabel = (tz: string, t: number) => {
@@ -328,6 +454,7 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
     lead,
     leadColumn,
     markets: edition ? marketViews(input.markets, settings, now) : [],
+    scores: edition ? scoreViews(input.scores, settings, now) : [],
     secondary,
     bands,
     brief,
