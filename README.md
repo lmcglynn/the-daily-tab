@@ -74,7 +74,7 @@ The first edition prints a few seconds later.
 ## Settings
 
 Open Settings with the gear at the end of the date line under the masthead (beside the magnifying
-glass), or from the extension's **Details → Extension options** on the extensions page; **← Back
+glass), the **Settings** link at the foot of the page, or from the extension's **Details → Extension options** on the extensions page; **← Back
 to The Daily Tab** at the top returns to the front page. There you can:
 
 - add any news site or feed (paste its address; the feed is found for you), rename, reorder and
