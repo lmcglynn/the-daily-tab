@@ -56,6 +56,7 @@
     {refreshing}
     onrefresh={firstRun ? undefined : onrefresh}
     onsearch={firstRun ? undefined : onsearch}
+    {settingsUrl}
   />
 
   <!-- Always present so screen readers announce the button when it appears. -->
@@ -235,9 +236,6 @@
   <footer class="colophon">
     <p>
       <span class="paper-name">{view.paperName}</span>
-      {#if settingsUrl}<span class="sep" aria-hidden="true">·</span><a href={settingsUrl}
-          >Settings</a
-        >{/if}
     </p>
     <p class="keys" aria-label="Keyboard shortcuts">
       <kbd>j</kbd> <kbd>k</kbd> next / previous story · <kbd>o</kbd> open · <kbd>s</kbd> save ·
@@ -287,16 +285,6 @@
     font-family: var(--font-masthead);
     font-size: 17px;
     letter-spacing: 0;
-    color: var(--ink);
-  }
-  .colophon .sep {
-    margin: 0 8px;
-  }
-  .colophon a {
-    text-decoration: underline;
-    text-underline-offset: 0.2em;
-  }
-  .colophon a:hover {
     color: var(--ink);
   }
   kbd {

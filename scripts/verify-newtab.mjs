@@ -489,11 +489,18 @@ try {
   });
   await sleep(200);
   check(await page2.eval(`!document.querySelector('dialog.search')`), 'Esc closes it');
-  await page2.eval(`document.querySelector('.folio-search').click()`);
+  await page2.eval(`document.querySelector('.folio-icon[aria-label="Search stories"]').click()`);
   await sleep(200);
   check(
     await page2.eval(`document.querySelector('dialog.search')?.open === true`),
     'the magnifying glass in the date line opens it too',
+  );
+  const gear = await page2.eval(
+    `document.querySelector('.folio-icon[aria-label="Settings"]')?.getAttribute('href') ?? ''`,
+  );
+  check(
+    gear.endsWith('/options.html'),
+    `the gear beside it links to Settings (${gear.split('/').pop()})`,
   );
   await page2.eval(`document.querySelector('dialog.search').close()`);
   await sleep(150);

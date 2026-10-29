@@ -77,6 +77,7 @@
   onopen={(id) => console.info('open', id)}
   onsave={save}
   onsearch={() => console.info('search')}
+  settingsUrl="#settings"
 />
 
 {#if toolbar}

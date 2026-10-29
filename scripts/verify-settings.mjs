@@ -69,6 +69,14 @@ try {
     `feed status lines (e.g. "${statuses[0]}")`,
   );
 
+  const back = await page.eval(
+    `(() => { const a = document.querySelector('a.back'); return a && { href: a.href, text: a.textContent.trim() }; })()`,
+  );
+  check(
+    back?.href === `chrome-extension://${extId}/newtab.html` && /^← Back to /.test(back.text),
+    `back link: "${back?.text}" → ${back?.href?.split('/').pop()}`,
+  );
+
   step('paper name');
   await setValue('input[maxlength="40"]', 'The Morning Ledger', 'input');
   await sleep(800);
@@ -457,6 +465,21 @@ try {
   const remembered = await tab3.eval(`document.querySelector('.ticker .pos')?.textContent`);
   check(remembered === '2 of 2', `last-viewed ticker remembered in the next tab (${remembered})`);
   tab3.close();
+
+  step('back to the front page');
+  await page.eval(`document.querySelector('a.back').click()`);
+  let landed = '';
+  for (let i = 0; i < 20 && !landed.endsWith('/newtab.html'); i++) {
+    await sleep(150);
+    landed = await page.eval('location.href').catch(() => '');
+  }
+  const masthead = await page.eval(`!!document.querySelector('.masthead')`).catch(() => false);
+  check(landed.endsWith('/newtab.html') && masthead, 'the back link opens the front page');
+  await page.navigate(`chrome-extension://${extId}/options.html`);
+  for (let i = 0; i < 40; i++) {
+    if (await page.eval(`document.querySelectorAll('.feed').length > 0`)) break;
+    await sleep(150);
+  }
 
   step('OPML import preview');
   const docNode = await page.send('DOM.getDocument');

@@ -7,11 +7,14 @@
     refreshing = false,
     onrefresh,
     onsearch,
+    settingsUrl = null,
   }: {
     view: FrontPageView;
     refreshing?: boolean;
     onrefresh?: () => void;
     onsearch?: () => void;
+    /** Link to the settings page (absent in the dev preview). */
+    settingsUrl?: string | null;
   } = $props();
 
   const brokenIcons = new SvelteSet<string>();
@@ -75,12 +78,34 @@
         title="Fetch the latest stories now"
         aria-label={refreshing ? 'Updating' : `${view.updatedLabel}. Refresh now`}
         >{refreshing ? 'Updating…' : view.updatedLabel}</button
-      >{:else}<span>{view.updatedLabel}</span>{/if}{#if onsearch}<span
+      >{:else}<span>{view.updatedLabel}</span>{/if}{#if settingsUrl || onsearch}<span
         class="sep"
         aria-hidden="true">·</span
-      ><button
+      >{/if}{#if settingsUrl}<a
+        class="folio-icon"
+        href={settingsUrl}
+        title="Settings"
+        aria-label="Settings"
+        ><svg
+          width="13"
+          height="13"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          aria-hidden="true"
+          ><circle cx="8" cy="8" r="4.1" stroke-width="1.7" /><circle
+            cx="8"
+            cy="8"
+            r="1.5"
+            stroke-width="1.4"
+          /><path
+            stroke-width="2.4"
+            d="M8 1.6v2M8 12.4v2M1.6 8h2M12.4 8h2M3.47 3.47l1.42 1.42M11.11 11.11l1.42 1.42M3.47 12.53l1.42-1.42M11.11 4.89l1.42-1.42"
+          /></svg
+        ></a
+      >{/if}{#if onsearch}<button
         type="button"
-        class="folio-search"
+        class="folio-icon"
         onclick={onsearch}
         title="Search stories (/)"
         aria-label="Search stories"
@@ -261,15 +286,18 @@
     letter-spacing: 0.2em;
     text-transform: uppercase;
   }
-  /* Search sits with the page's other action (refresh) at the end of the folio. */
-  .folio-search {
+  /* Settings and search sit with the page's other action (refresh) at the end of the folio. */
+  .folio-icon {
     display: inline-grid;
     place-items: center;
     align-self: center;
     padding: 2px;
     color: var(--ink);
   }
-  .folio-search:hover {
+  .folio-icon + .folio-icon {
+    margin-left: 4px;
+  }
+  .folio-icon:hover {
     color: var(--ink-2);
   }
   .index a:hover {

@@ -320,6 +320,9 @@
 
 <main>
   <header class="top">
+    <a class="back" href={browser.runtime.getURL('/newtab.html')}
+      ><span aria-hidden="true">←</span> Back to {settings.paperName}</a
+    >
     <h1>Settings</h1>
     <p class="sub">{settings.paperName}</p>
   </header>
@@ -540,6 +543,18 @@
     border-bottom: 1px solid var(--rule-ink);
     padding-bottom: 14px;
     margin-bottom: 8px;
+  }
+  .back {
+    display: inline-block;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: var(--ink-2);
+    text-decoration: none;
+  }
+  .back:hover {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
   }
   h1 {
     font-size: 28px;
