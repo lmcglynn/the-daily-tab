@@ -92,6 +92,9 @@ Node is installed machine-wide (`C:\Program Files\nodejs`). In the Bash tool, pr
   the latest Edition from IndexedDB and listens for `edition-updated` messages.
 - Never render feed HTML. Summaries are reduced to plain text (≤ ~300 chars) by `lib/feed/text.ts`.
   Only `http:`/`https:` links and image URLs survive normalization (`safeUrl`).
+- Permissions: `storage`, `alarms`, `contextMenus` (the "Save to Clippings" right-click item, on
+  the new tab only; the page tells the background, as the right button goes down, whether the
+  story under the pointer is saved, and the background hands a chosen link back to the tab).
 - Host access is requested per feed origin through `optional_host_permissions` when a feed is added.
   Do not add `<all_urls>` to `host_permissions`.
 - Pure functions take `now` as a parameter instead of calling `Date.now()` so tests are deterministic.

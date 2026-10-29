@@ -44,7 +44,8 @@ export default defineConfig({
   manifest: ({ mode }) => ({
     name: 'The Daily Tab',
     description: 'Your news, set like the front page of a printed paper.',
-    permissions: ['storage', 'alarms'],
+    // contextMenus: "Save to Clippings" on a story's right-click menu (no install warning).
+    permissions: ['storage', 'alarms', 'contextMenus'],
     // Requested per feed origin when a feed is added; never granted up front.
     optional_host_permissions: ['https://*/*', 'http://*/*'],
     // Automated checks only (`wxt build --mode e2e` → .output/edge-mv3-e2e): headless Edge

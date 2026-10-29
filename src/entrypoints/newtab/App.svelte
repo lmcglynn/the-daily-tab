@@ -17,7 +17,7 @@
     withItems,
     type Snapshot,
   } from '@/lib/frontpage-data';
-  import type { Broadcast } from '@/lib/messages';
+  import type { Broadcast, TabMessage } from '@/lib/messages';
   import { muteMatcher } from '@/lib/mute';
   import { originPatterns } from '@/lib/seed';
   import { getFeeds, isFeedKey, removeFeed, saveSettings, setLastVisitAt } from '@/lib/storage';
@@ -122,7 +122,8 @@
     if (snap) snap = { ...snap, states: await (await dbReady).feedState.toArray() };
   }
 
-  function onMessage(msg: Broadcast) {
+  function onMessage(msg: Broadcast | TabMessage) {
+    if (msg.type === 'clip-link') clipLink(msg.url);
     if (msg.type === 'edition-updated') void onEdition(msg.editionId);
     if (msg.type === 'refresh-state') {
       refreshing = msg.running;
@@ -192,6 +193,27 @@
     const clippings = toggleClipping(snap.clippings, clip);
     snap = { ...snap, clippings };
     void browser.storage.local.set({ [CLIPPINGS_KEY]: clippings });
+  }
+
+  // Right-click → "Save to Clippings" (the browser's own menu; the background adds the item).
+  // As the right button goes down, tell it whether the story under the pointer is saved, so the
+  // item reads "Save" or "Remove", and hides off a story.
+  const storyLink = (target: EventTarget | null) =>
+    target instanceof Element ? target.closest('article[data-story] a') : null;
+
+  function onMenuOpening(e: MouseEvent) {
+    if (!snap || (e.type === 'pointerdown' && e.button !== 2)) return;
+    const id = storyLink(e.target)?.closest<HTMLElement>('article')?.dataset.story;
+    const saved = id ? snap.clippings.some((c) => c.id === id) : null;
+    browser.runtime.sendMessage({ type: 'clip-menu', saved }).catch(() => undefined);
+  }
+
+  function clipLink(url: string) {
+    const link = [...document.querySelectorAll<HTMLAnchorElement>('article[data-story] a')].find(
+      (a) => a.href === url,
+    );
+    const id = link?.closest<HTMLElement>('article')?.dataset.story;
+    if (id) toggleSave(id);
   }
 
   async function toggleMore(category: string) {
@@ -328,6 +350,8 @@
   onMount(() => {
     void load();
     document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onMenuOpening);
+    document.addEventListener('contextmenu', onMenuOpening);
 
     browser.runtime.onMessage.addListener(onMessage);
     browser.storage.onChanged.addListener(onStorage);
@@ -346,6 +370,8 @@
 
     return () => {
       document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onMenuOpening);
+      document.removeEventListener('contextmenu', onMenuOpening);
       browser.runtime.onMessage.removeListener(onMessage);
       browser.storage.onChanged.removeListener(onStorage);
       removeEventListener('online', setOnline);

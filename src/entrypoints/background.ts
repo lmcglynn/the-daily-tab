@@ -7,24 +7,34 @@ import { MARKETS_KEY, SCORES_KEY, WEATHER_KEY, refreshExtras } from '@/lib/extra
 import { fetchTeams } from '@/lib/extras/scores';
 import { geocode } from '@/lib/extras/weather';
 import { discoverFeeds } from '@/lib/feed/discover';
-import type { Broadcast, Request } from '@/lib/messages';
+import type { Broadcast, Request, TabMessage } from '@/lib/messages';
 import { STARTER_SECTIONS, starterFeeds } from '@/lib/seed';
 import { getFeeds, getSettings, isFeedKey, saveFeeds, saveSettings } from '@/lib/storage';
 
 const ALARM = 'refresh';
 /** One-off, while a followed team is playing: keeps the scores box current between refreshes. */
 const SCORES_ALARM = 'scores';
+/** "Save to Clippings" on the right-click menu of a story's link or photo, on the new tab only. */
+const CLIP_MENU = 'clip';
 
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(async ({ reason }) => {
     if (reason === 'install') await seed();
     // The single-quote cache from before the tickers list.
     if (reason === 'update') await browser.storage.local.remove('market');
+    await createMenus();
     await ensureAlarm(true);
     void runRefresh(false);
   });
 
   browser.runtime.onStartup.addListener(() => void ensureAlarm(false));
+
+  // The page knows which story the link belongs to; hand it the link.
+  browser.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId !== CLIP_MENU || tab?.id === undefined || !info.linkUrl) return;
+    const msg: TabMessage = { type: 'clip-link', url: info.linkUrl };
+    browser.tabs.sendMessage(tab.id, msg).catch(() => undefined);
+  });
 
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === ALARM) void runRefresh(false);
@@ -86,6 +96,16 @@ async function runExtras(force: boolean): Promise<void> {
   } catch (e) {
     console.warn('[daily-tab] weather/market refresh failed', e);
   }
+}
+
+async function createMenus() {
+  await browser.contextMenus.removeAll();
+  browser.contextMenus.create({
+    id: CLIP_MENU,
+    title: 'Save to Clippings',
+    contexts: ['link', 'image'],
+    documentUrlPatterns: [browser.runtime.getURL('/newtab.html')],
+  });
 }
 
 async function seed() {
@@ -199,6 +219,15 @@ async function handle(msg: Request): Promise<unknown> {
       } catch (e) {
         return { error: e instanceof Error ? e.message : String(e) };
       }
+    case 'clip-menu':
+      // Sent as the right button goes down, before the menu opens.
+      await browser.contextMenus
+        .update(CLIP_MENU, {
+          visible: msg.saved !== null,
+          title: msg.saved ? 'Remove from Clippings' : 'Save to Clippings',
+        })
+        .catch(() => undefined);
+      return null;
     case 'compose': {
       const [feeds, settings] = await Promise.all([getFeeds(), getSettings()]);
       const { edition, isNew } = await publishEdition(

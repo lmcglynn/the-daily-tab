@@ -98,7 +98,8 @@ refreshes now. If the address bar has focus on a new tab, click the page first.
 
 ## Clippings
 
-Point at a story and click **Save** next to its byline (or press **s**) to keep it. Saved stories
+Point at a story and click **Save** next to its byline, right-click its headline or photo and choose
+**Save to Clippings**, or press **s** to keep it. Saved stories
 are listed under **Clippings** at the foot of the page, linked from the section index, and stay
 there after the story itself drops off the paper. They're kept on this computer only.
 

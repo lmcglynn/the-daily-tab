@@ -307,6 +307,54 @@ try {
   );
   page3.close();
 
+  step('right-click menu: "Save to Clippings"');
+  // The menu exists (update rejects for an unknown id).
+  const menu = await sw.eval(
+    `chrome.contextMenus.update('clip', {}).then(() => 'ok', (e) => e.message)`,
+  );
+  check(menu === 'ok', `menu item created (${menu})`);
+  // A real right-button press on a headline reaches the background without errors.
+  const clipTarget = await page2.eval(`(() => {
+    const a = document.querySelector('main article[data-story] .headline a');
+    const r = a.getBoundingClientRect();
+    return { x: r.x + 5, y: r.y + r.height / 2, href: a.href, id: a.closest('article').dataset.story };
+  })()`);
+  await page2.send('Input.dispatchMouseEvent', {
+    type: 'mousePressed',
+    x: clipTarget.x,
+    y: clipTarget.y,
+    button: 'right',
+    clickCount: 1,
+  });
+  await page2.send('Input.dispatchMouseEvent', {
+    type: 'mouseReleased',
+    x: clipTarget.x,
+    y: clipTarget.y,
+    button: 'right',
+    clickCount: 1,
+  });
+  await page2.send('Input.dispatchKeyEvent', {
+    type: 'keyDown',
+    key: 'Escape',
+    windowsVirtualKeyCode: 27,
+  });
+  // Choosing the item: the background hands the link to the tab, as onClicked does.
+  const sendToTabs = (url) =>
+    sw.eval(`chrome.tabs.query({}).then((tabs) => Promise.all(tabs.map((t) =>
+      chrome.tabs.sendMessage(t.id, { type: 'clip-link', url: ${JSON.stringify(url)} }).catch(() => null))))`);
+  await sendToTabs(clipTarget.href);
+  await sleep(300);
+  check(
+    (await stored()).includes(clipTarget.id),
+    `menu choice saved the story under the pointer (${clipTarget.id})`,
+  );
+  await sendToTabs(clipTarget.href);
+  await sleep(300);
+  check(
+    !(await stored()).includes(clipTarget.id),
+    'choosing it again ("Remove from Clippings") removes it',
+  );
+
   step('keyboard: o opens the current story');
   await page2.send('Page.bringToFront');
   await press(page2, 'j');
