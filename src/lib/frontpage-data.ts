@@ -133,15 +133,22 @@ export async function loadEditionItems(
   return map;
 }
 
-/** Stories in `next` that the reader hasn't been shown in `current`. */
-export function newStoryCount(current: Edition | null, next: Edition): number {
+/**
+ * Stories in `next` that the reader hasn't been shown in `current`. `briefShown`: how many In
+ * Brief stories the page has room for (it holds more than it shows).
+ */
+export function newStoryCount(
+  current: Edition | null,
+  next: Edition,
+  briefShown = Infinity,
+): number {
   const shown = new Set(current ? editionItemIds(current) : []);
   const placed = [
     next.leadItemId,
     ...next.secondaryItemIds,
     ...(next.leadColumnItemIds ?? []),
     ...next.sections.flatMap((s) => s.itemIds),
-    ...next.briefItemIds,
+    ...next.briefItemIds.slice(0, briefShown),
   ];
   return placed.filter((id) => !shown.has(id)).length;
 }

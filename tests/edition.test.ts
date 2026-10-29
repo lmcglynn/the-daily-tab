@@ -1,4 +1,10 @@
-import { composeEdition, editionItemIds, sameLayout, sectionOrder } from '@/lib/edition/compose';
+import {
+  BRIEF_COUNT,
+  composeEdition,
+  editionItemIds,
+  sameLayout,
+  sectionOrder,
+} from '@/lib/edition/compose';
 import { groupStories, headlineTokens, jaccard } from '@/lib/edition/group';
 import { assignStories, publishEdition } from '@/lib/edition/publish';
 import type { Item } from '@/lib/types';
@@ -210,7 +216,7 @@ describe('composeEdition', () => {
     const free = world.filter((i) => !(e.leadColumnItemIds ?? []).includes(i.id));
     expect(e.sections[0]!.itemIds).toEqual(free.slice(0, 4).map((i) => i.id));
     expect(e.briefItemIds.length).toBeGreaterThan(0);
-    expect(e.briefItemIds.length).toBeLessThanOrEqual(12);
+    expect(e.briefItemIds.length).toBeLessThanOrEqual(BRIEF_COUNT);
     const all = frontPageItems();
     const times = e.briefItemIds.map((id) => all.find((i) => i.id === id)!.publishedAt);
     expect([...times].sort((a, b) => b - a)).toEqual(times);

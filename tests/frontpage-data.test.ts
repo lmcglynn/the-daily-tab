@@ -74,6 +74,14 @@ describe('loadEditionItems', () => {
   });
 });
 
+describe('newStoryCount with In Brief cut to fit', () => {
+  it('counts only the In Brief stories the page has room for', () => {
+    const next = edition({ id: 'n', briefItemIds: ['b1', 'b2', 'b3', 'b4'] });
+    expect(newStoryCount(null, next)).toBe(5); // lead + 4
+    expect(newStoryCount(null, next, 2)).toBe(3);
+  });
+});
+
 describe('moreInSection', () => {
   it('returns the newest unshown stories of that section, one per story', async () => {
     const db = freshDB();

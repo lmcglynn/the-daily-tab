@@ -49,7 +49,9 @@
   let starting = $state(false);
   let startError = $state('');
 
-  const view = $derived(snap ? buildFrontPage({ ...snap, now, online, more }) : null);
+  // How many In Brief stories the page has room for (FrontPage measures it).
+  let briefShown = $state<number | undefined>(undefined);
+  const view = $derived(snap ? buildFrontPage({ ...snap, now, online, more, briefShown }) : null);
 
   const firstRun = $derived(
     snap && !snap.edition
@@ -117,7 +119,7 @@
       fade();
       return;
     }
-    const count = newStoryCount(snap.edition, edition);
+    const count = newStoryCount(snap.edition, edition, briefShown);
     // A reshuffle with no new stories isn't worth interrupting for; the next tab shows it.
     if (count > 0) pending = { edition, items, count };
   }
@@ -474,9 +476,12 @@
   // Keyboard --------------------------------------------------------------------------------
 
   /** Headline links in reading order: lead, secondary, bands (and "More"), In Brief. */
-  const storyLinks = () => [
-    ...document.querySelectorAll<HTMLAnchorElement>('main article[data-story] .headline a'),
-  ];
+  const storyLinks = () =>
+    [
+      ...document.querySelectorAll<HTMLAnchorElement>('main article[data-story] .headline a'),
+    ].filter(
+      (a) => !a.closest('[hidden]'), // In Brief stories without room on the page
+    );
 
   let current = -1;
 
@@ -572,6 +577,7 @@
     onrefresh={refresh}
     onsearch={() => void openSearch()}
     onspoilers={() => void toggleSpoilers()}
+    onbriefshown={(n) => (briefShown = n)}
     settingsUrl={browser.runtime.getURL('/options.html')}
   />
 {/if}
