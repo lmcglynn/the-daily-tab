@@ -88,6 +88,8 @@ export interface ScoreView {
   /** "Next: Tonight at Clippers, 7:30 p.m." */
   next: string;
   live: boolean;
+  /** No next game, or none for two weeks: shown after the teams in season. */
+  offseason: boolean;
   label: string;
 }
 
@@ -193,8 +195,8 @@ export function marketViews(
 const SCORES_MAX_AGE_MS = 4 * 24 * 60 * 60_000;
 
 /**
- * Live games first, then the rest; each group in the reader's order. A team with no recent
- * report is left out.
+ * Live games first, then teams in season, then teams in their offseason; each group in the
+ * reader's order. A team with no recent report is left out.
  */
 export function scoreViews(
   scores: Record<string, ScoreReport> | undefined,
@@ -207,8 +209,13 @@ export function scoreViews(
     if (!report.last && !report.current) return [];
     return [scoreView(t, report, now)];
   });
-  return [...views.filter((v) => v.live), ...views.filter((v) => !v.live)];
+  const rank = (v: ScoreView) => (v.live ? 0 : v.offseason ? 2 : 1);
+  // Array sort is stable: within a rank, the reader's order stands.
+  return views.sort((a, b) => rank(a) - rank(b));
 }
+
+/** A team whose next game is further off than this is treated as out of season. */
+export const OFFSEASON_AFTER_MS = 14 * 86_400_000;
 
 const dayStart = (t: number) => new Date(t).setHours(0, 0, 0, 0);
 const time12 = (t: number) => `${clock(t)} ${clockParts(t).meridiem}`;
@@ -292,6 +299,7 @@ export function scoreView(team: SportsTeam, report: ScoreReport, now: number): S
     status,
     next,
     live: !!live,
+    offseason: !live && (!upcoming || upcoming.date - now > OFFSEASON_AFTER_MS),
     label: next ? `${spoken} ${next.replace(/\.$/, '')}.` : spoken,
   };
 }

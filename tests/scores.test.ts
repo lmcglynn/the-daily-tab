@@ -272,6 +272,39 @@ describe('scores box view', () => {
     ]);
   });
 
+  it('puts teams in their offseason last: no next game, or none for two weeks', () => {
+    const team = (id: string, name: string) => ({ ...lakers, id, name });
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      teams: [team('1', 'Done'), team('2', 'Far'), team('3', 'Soon'), team('4', 'Live')],
+    };
+    const game = (when: number, state: 'pre' | 'in', id: string) => ({
+      ...parseGame(state === 'in' ? liveAtClippers : tomorrowAtClippers)!,
+      date: when,
+      away: { id, name: 'Us', abbr: 'US' },
+    });
+    const r = (id: string, current: ScoreReport['current']): ScoreReport => ({
+      at: NOW,
+      key: `basketball/nba:${id}`,
+      last: { ...parseGame(lostLastNight)!, home: { id, name: 'Us', abbr: 'US', score: 1 } },
+      current,
+    });
+    const scores = Object.fromEntries(
+      [
+        r('1', null), // season over: no next game
+        r('2', game(NOW + 20 * 86_400_000, 'pre', '2')), // next game three weeks out
+        r('3', game(NOW + 13 * 86_400_000, 'pre', '3')), // within two weeks: in season
+        r('4', game(NOW - 3_600_000, 'in', '4')),
+      ].map((x) => [x.key, x]),
+    );
+    expect(scoreViews(scores, settings, NOW).map((v) => [v.team, v.offseason])).toEqual([
+      ['Live', false],
+      ['Soon', false],
+      ['Done', true],
+      ['Far', true],
+    ]);
+  });
+
   it('lists teams in the reader’s order, skipping ones with no recent report', () => {
     const settings = {
       ...DEFAULT_SETTINGS,
