@@ -162,8 +162,21 @@ try {
     warning && (await sync()).settings.spotColor === '#ffd700',
     'light spot color saved with a contrast warning',
   );
-  await clickText('Reset to press red');
-  await sleep(300);
+  const resetEnabled = await page.eval(`!document.querySelector('.reset-spot').disabled`);
+  // A pick still waiting to save mustn't undo the reset.
+  await setValue('input[type="color"]', '#00aa00', 'input');
+  await clickText('Reset to default');
+  await sleep(800);
+  const resetState = await page.eval(
+    `({ disabled: document.querySelector('.reset-spot').disabled, picker: document.querySelector('input[type="color"]').value })`,
+  );
+  check(
+    resetEnabled &&
+      (await sync()).settings.spotColor.toLowerCase() === '#a4161a' &&
+      resetState.disabled &&
+      resetState.picker.toLowerCase() === '#a4161a',
+    'Reset to default restores press red (and greys out until the color changes again)',
+  );
 
   step('refresh interval');
   await setValue('#refresh-interval', '30');
@@ -494,12 +507,14 @@ try {
 
   step('back to the front page');
   await page.eval(`document.querySelector('a.back').click()`);
+  // Wait for the front page itself, not just the address: it renders a moment later.
   let landed = '';
-  for (let i = 0; i < 20 && !landed.endsWith('/newtab.html'); i++) {
+  let masthead = false;
+  for (let i = 0; i < 40 && !(landed.endsWith('/newtab.html') && masthead); i++) {
     await sleep(150);
     landed = await page.eval('location.href').catch(() => '');
+    masthead = await page.eval(`!!document.querySelector('.masthead')`).catch(() => false);
   }
-  const masthead = await page.eval(`!!document.querySelector('.masthead')`).catch(() => false);
   check(landed.endsWith('/newtab.html') && masthead, 'the back link opens the front page');
   await page.navigate(`chrome-extension://${extId}/options.html`);
   for (let i = 0; i < 40; i++) {

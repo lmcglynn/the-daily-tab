@@ -255,6 +255,12 @@
     spotTimer = setTimeout(() => void patchSettings({ spotColor: value }), 400);
   }
 
+  function resetSpot() {
+    // A pick still waiting to save would otherwise undo the reset.
+    clearTimeout(spotTimer);
+    void patchSettings({ spotColor: DEFAULT_SPOT });
+  }
+
   async function refreshNow() {
     refreshing = true;
     refreshNote = '';
@@ -426,7 +432,9 @@
         </fieldset>
         <fieldset>
           <legend>Spot color</legend>
-          <p class="hint">Used only for section kickers, “new” dots and focus rings.</p>
+          <p class="hint">
+            Used only for section kickers, “new” and “live” dots, focus rings and selected text.
+          </p>
           <div class="spot">
             <input
               type="color"
@@ -436,14 +444,13 @@
             />
             <span class="swatch day">WORLD</span>
             <span class="swatch night">WORLD</span>
-            {#if settings.spotColor.toLowerCase() !== DEFAULT_SPOT.toLowerCase()}
-              <button
-                type="button"
-                class="link"
-                onclick={() => void patchSettings({ spotColor: DEFAULT_SPOT })}
-                >Reset to press red</button
-              >
-            {/if}
+            <button
+              type="button"
+              class="reset-spot"
+              disabled={settings.spotColor.toLowerCase() === DEFAULT_SPOT.toLowerCase()}
+              title="The default press red ({DEFAULT_SPOT})"
+              onclick={resetSpot}>Reset to default</button
+            >
           </div>
           {#if spotContrast < MIN_TEXT_CONTRAST}
             <p class="error" role="status">
