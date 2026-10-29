@@ -6,7 +6,9 @@ import { groupStories } from '@/lib/edition/group';
 import { normalizeDate } from '@/lib/feed/normalize';
 import { feedIdFor } from '@/lib/hash';
 import { DEFAULT_SETTINGS } from '@/lib/defaults';
+import { clipFromItem } from '@/lib/clippings';
 import type {
+  Clipping,
   Edition,
   Feed,
   FeedState,
@@ -376,3 +378,25 @@ export const edition: Edition = composeEdition({
   now: NOW,
   previousNumber: 41,
 })!;
+
+/** Saved stories: two from this edition and one from last week (kept after its item is gone). */
+export const clippings: Clipping[] = [
+  ...items
+    .filter((i) => /^(Heatwave|Supercomputer)/.test(i.title))
+    .map((i) =>
+      clipFromItem(
+        i,
+        feeds.find((f) => f.id === i.feedId),
+        NOW - 3_600_000,
+      ),
+    ),
+  {
+    id: 'clip-old',
+    title: 'The quiet return of the neighbourhood bookshop',
+    link: 'https://example.com/bookshops',
+    source: 'The Guardian',
+    summary: 'Independent shops are opening faster than they close for the first time in a decade.',
+    publishedAt: NOW - 6 * 86_400_000,
+    savedAt: NOW - 5 * 86_400_000,
+  },
+];

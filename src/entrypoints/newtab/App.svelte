@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte';
   import { browser } from 'wxt/browser';
   import { applyAppearance } from '@/lib/appearance';
+  import { CLIPPINGS_KEY, asClippings, clipFromItem, toggleClipping } from '@/lib/clippings';
   import type { DailyTabDB } from '@/lib/db';
   import { normalizeSettings } from '@/lib/defaults';
   import {
@@ -147,6 +148,10 @@
       });
       snap = { ...snap, weather, markets };
     }
+    // Saved in another tab.
+    if (area === 'local' && changes[CLIPPINGS_KEY]) {
+      snap = { ...snap, clippings: asClippings(changes[CLIPPINGS_KEY].newValue) };
+    }
   }
 
   // Reader actions --------------------------------------------------------------------------
@@ -167,6 +172,25 @@
         location.href = item.link;
       });
     }
+  }
+
+  function toggleSave(id: string) {
+    if (!snap) return;
+    const item = snap.items.get(id);
+    const saved = snap.clippings.find((c) => c.id === id);
+    const clip =
+      saved ??
+      (item
+        ? clipFromItem(
+            item,
+            snap.feeds.find((f) => f.id === item.feedId),
+            Date.now(),
+          )
+        : null);
+    if (!clip) return;
+    const clippings = toggleClipping(snap.clippings, clip);
+    snap = { ...snap, clippings };
+    void browser.storage.local.set({ [CLIPPINGS_KEY]: clippings });
   }
 
   async function toggleMore(category: string) {
@@ -284,6 +308,13 @@
       link.closest('article')?.scrollIntoView({ block: 'nearest' });
     } else if (action === 'open') {
       (links[current] ?? links[0])?.click();
+    } else if (action === 'save') {
+      // The focused story (Clippings included), else the current one.
+      const article =
+        document.activeElement?.closest<HTMLElement>('article[data-story]') ??
+        links[current]?.closest<HTMLElement>('article');
+      const id = article?.dataset.story;
+      if (id) toggleSave(id);
     } else if (action === 'refresh') {
       void refresh();
     } else if (action === 'new') {
@@ -333,6 +364,7 @@
     {refreshing}
     newEdition={pending ? { count: pending.count } : null}
     onopen={open}
+    onsave={toggleSave}
     onmore={toggleMore}
     onshownew={showNewEdition}
     onstart={start}

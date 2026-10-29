@@ -12,6 +12,7 @@
     fresh = false,
     refreshing = false,
     onopen,
+    onsave,
     onmore,
     onshownew,
     onstart,
@@ -29,6 +30,8 @@
     fresh?: boolean;
     refreshing?: boolean;
     onopen?: (id: string, e: MouseEvent) => void;
+    /** Save a story to clippings, or remove it. */
+    onsave?: (id: string) => void;
     onmore?: (category: string) => void;
     onshownew?: () => void;
     onstart?: (sections: string[]) => void;
@@ -97,6 +100,7 @@
             story={view.lead}
             variant="lead"
             {onopen}
+            {onsave}
             extras={view.leadColumn.length || view.markets.length ? leadExtras : undefined}
           />
         </div>
@@ -113,7 +117,7 @@
             <h2 class="column-label" id="also-today">Also today</h2>
             <ul>
               {#each view.leadColumn as s (s.id)}
-                <li><Story story={s} variant="brief" {onopen} /></li>
+                <li><Story story={s} variant="brief" {onopen} {onsave} /></li>
               {/each}
             </ul>
           </section>
@@ -123,7 +127,7 @@
       {#if view.secondary.length}
         <div class="secondary ruled">
           {#each view.secondary as s, i (s.id)}
-            <Story story={s} variant="secondary" photo={i === 0} {onopen} />
+            <Story story={s} variant="secondary" photo={i === 0} {onopen} {onsave} />
           {/each}
         </div>
       {/if}
@@ -137,14 +141,14 @@
             <div class="band-stories" style:--n={Math.max(band.stories.length, 3)}>
               {#each band.stories as s, i (s.id)}
                 <div class="band-cell" class:ruled={i > 0}>
-                  <Story story={s} variant="band" {onopen} />
+                  <Story story={s} variant="band" {onopen} {onsave} />
                 </div>
               {/each}
             </div>
             {#if band.more}
               <ol class="more" aria-label="More in {band.category}">
                 {#each band.more as s (s.id)}
-                  <li><Story story={s} variant="brief" {onopen} /></li>
+                  <li><Story story={s} variant="brief" {onopen} {onsave} /></li>
                 {:else}
                   <li class="more-empty">Nothing more in {band.category} for now.</li>
                 {/each}
@@ -172,12 +176,23 @@
           <h2 class="band-name" id="in-brief-name">In Brief</h2>
           <ol>
             {#each view.brief as s (s.id)}
-              <li><Story story={s} variant="brief" {onopen} /></li>
+              <li><Story story={s} variant="brief" {onopen} {onsave} /></li>
             {/each}
           </ol>
         </aside>
       {/if}
     </main>
+
+    {#if view.clippings.length}
+      <section class="clippings" id="clippings" aria-labelledby="clippings-name">
+        <h2 class="band-name" id="clippings-name">Clippings</h2>
+        <ol>
+          {#each view.clippings as s (s.id)}
+            <li><Story story={s} variant="brief" {onopen} {onsave} /></li>
+          {/each}
+        </ol>
+      </section>
+    {/if}
 
     {#if view.corrections.length}
       <section class="corrections" aria-labelledby="corrections-name">
@@ -197,8 +212,8 @@
         >{/if}
     </p>
     <p class="keys" aria-label="Keyboard shortcuts">
-      <kbd>j</kbd> <kbd>k</kbd> next / previous story · <kbd>o</kbd> open · <kbd>r</kbd> refresh ·
-      <kbd>n</kbd> new edition
+      <kbd>j</kbd> <kbd>k</kbd> next / previous story · <kbd>o</kbd> open · <kbd>s</kbd> save ·
+      <kbd>r</kbd> refresh · <kbd>n</kbd> new edition
     </p>
   </footer>
 </div>
@@ -427,6 +442,29 @@
     border-top: 1px solid var(--rule);
     margin-top: 10px;
     padding-top: 10px;
+  }
+
+  /* Saved stories, at the foot of the page like a clipped column. */
+  .clippings {
+    margin-top: var(--band-gap);
+    scroll-margin-top: 16px;
+  }
+  .clippings ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    columns: 3;
+    column-gap: var(--gutter);
+    column-rule: 1px solid var(--rule);
+  }
+  .clippings li {
+    break-inside: avoid;
+    padding-bottom: 12px;
+  }
+  @media (max-width: 859px) {
+    .clippings ol {
+      columns: 1;
+    }
   }
 
   .corrections {

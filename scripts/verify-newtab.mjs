@@ -34,10 +34,10 @@ const idb = (body) => `new Promise((resolve) => {
 
 const browser = await launchEdge({ extensionDir: '.output/edge-mv3-e2e', port: 9335 });
 const watchdog = setTimeout(async () => {
-  console.log('FAIL watchdog: gave up after 120 s');
+  console.log('FAIL watchdog: gave up after 150 s');
   await browser.close();
   process.exit(2);
-}, 120_000);
+}, 150_000);
 
 try {
   const { session: sw, extId } = await findExtensionWorker(browser);
@@ -268,6 +268,44 @@ try {
     `(document.querySelector('.corrections')?.innerText ?? '').replace(/\\s+/g, ' ').trim()`,
   );
   check(/could not be reached at \d+:\d\d/i.test(corrections), `corrections box: "${corrections}"`);
+
+  step('keyboard: s saves the current story to Clippings (and again removes it)');
+  await page2.send('Page.bringToFront');
+  await press(page2, 'j');
+  const savedId = await focusedStory(page2);
+  await press(page2, 's');
+  await sleep(300);
+  const stored = async () =>
+    ((await page2.eval(`chrome.storage.local.get('clippings')`)).clippings ?? []).map((c) => c.id);
+  const clippingIds = (p) =>
+    p.eval(`[...document.querySelectorAll('#clippings article')].map((a) => a.dataset.story)`);
+  const pressed = await page2.eval(
+    `document.querySelector('article[data-story="${savedId}"] .clip')?.getAttribute('aria-pressed')`,
+  );
+  check(
+    (await stored()).includes(savedId) &&
+      (await clippingIds(page2)).includes(savedId) &&
+      pressed === 'true',
+    `saved ${savedId}: stored, listed under Clippings, button pressed`,
+  );
+  const page3 = await browser.newPage();
+  await page3.navigate(newtab);
+  await sleep(600);
+  const index = await page3.eval(`document.querySelector('.index')?.innerText ?? ''`);
+  check(
+    (await clippingIds(page3)).includes(savedId) && /clippings/i.test(index),
+    'a new tab shows it, with Clippings in the index',
+  );
+  await page2.send('Page.bringToFront');
+  await press(page2, 's');
+  await sleep(400);
+  check(
+    (await stored()).length === 0 &&
+      (await clippingIds(page2)).length === 0 &&
+      (await clippingIds(page3)).length === 0,
+    'pressing s again removes it, here and in the other open tab',
+  );
+  page3.close();
 
   step('keyboard: o opens the current story');
   await page2.send('Page.bringToFront');

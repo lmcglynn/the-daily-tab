@@ -9,6 +9,7 @@
     variant,
     photo = true,
     onopen,
+    onsave,
     extras,
   }: {
     story: StoryView;
@@ -17,6 +18,8 @@
     photo?: boolean;
     /** Called for left, middle and modified clicks on the headline. */
     onopen?: (id: string, e: MouseEvent) => void;
+    /** Save to (or remove from) clippings; no button without it. */
+    onsave?: (id: string) => void;
     /** Lead only: what fills its text column under the body (headlines, ticker). */
     extras?: Snippet;
   } = $props();
@@ -27,6 +30,21 @@
   const kicker = $derived(variant === 'band' ? story.source : story.kicker);
   const open = (e: MouseEvent) => onopen?.(story.id, e);
 </script>
+
+{#snippet byline()}
+  <p class="byline">
+    <!-- Explicit separators: a block's leading whitespace is trimmed. -->
+    {story.source}{#if story.ago}&#32;·&#32;<time datetime={story.datetime}>{story.ago}</time
+      >{/if}{#if onsave}<button
+        type="button"
+        class="clip"
+        aria-pressed={story.saved}
+        title={story.saved ? 'Remove from your clippings (s)' : 'Save to your clippings (s)'}
+        onclick={() => onsave(story.id)}
+        ><span aria-hidden="true">·</span> {story.saved ? 'Saved' : 'Save'}</button
+      >{/if}
+  </p>
+{/snippet}
 
 <article
   class="story {variant}"
@@ -42,9 +60,7 @@
         ></span><span class="visually-hidden">New: </span>{/if}
       <a href={story.link} onclick={open} onauxclick={open}>{story.title}</a>
     </h3>
-    <p class="byline">
-      {story.source} · <time datetime={story.datetime}>{story.ago}</time>
-    </p>
+    {@render byline()}
   {:else}
     {#if kicker}
       <p class="kicker">
@@ -71,9 +87,7 @@
           </div>
         {/if}
         <div class="lead-text">
-          <p class="byline">
-            {story.source} · <time datetime={story.datetime}>{story.ago}</time>
-          </p>
+          {@render byline()}
           {#if story.body}<p class="body">{story.body}</p>{/if}
           {#if extras}<div class="lead-extras">{@render extras()}</div>{/if}
         </div>
@@ -87,9 +101,7 @@
           eager={variant === 'secondary'}
         />
       {/if}
-      <p class="byline">
-        {story.source} · <time datetime={story.datetime}>{story.ago}</time>
-      </p>
+      {@render byline()}
     {/if}
   {/if}
 </article>
@@ -148,6 +160,34 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--ink-2);
+  }
+  /* Shown on the story's own hover or focus (child combinators: stories nest in the lead),
+     and always once saved. */
+  .clip {
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: var(--ink-muted);
+    background: none;
+    border: 0;
+    padding: 0 0 0 0.3em;
+    margin: 0;
+    cursor: pointer;
+    opacity: 0;
+  }
+  .clip:hover {
+    color: var(--ink);
+  }
+  .clip[aria-pressed='true'] {
+    color: var(--ink);
+    opacity: 1;
+  }
+  .story:hover > .byline > .clip,
+  .story:focus-within > .byline > .clip,
+  .lead:hover > .lead-body > .lead-text > .byline > .clip,
+  .lead:focus-within > .lead-body > .lead-text > .byline > .clip,
+  .clip:focus-visible {
+    opacity: 1;
   }
   .byline a {
     text-decoration: underline;

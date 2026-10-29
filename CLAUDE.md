@@ -11,7 +11,8 @@ the same build. Firefox is out of scope.
 - fast-xml-parser for feeds (the service worker has no DOMParser).
 - Dexie (IndexedDB): items, editions, feed fetch state.
 - `chrome.storage.sync`: settings (`settings` key) and the feed list (one key per feed, `feed:<id>`).
-- `chrome.storage.local`: `lastVisitAt` (changes on every new tab).
+- `chrome.storage.local`: `lastVisitAt` (changes on every new tab), `clippings` (saved stories,
+  self-contained copies so they outlive pruned items; per device), `weather`, `markets`.
 - `chrome.alarms` for scheduled refresh (default 15 min).
 - Vitest + fake-indexeddb for tests. ESLint (flat config) + Prettier.
 - Fonts from Fontsource, Latin-subset woff2 only, declared by hand in `src/styles/fonts.css`.
@@ -77,7 +78,7 @@ Node is installed machine-wide (`C:\Program Files\nodejs`). In the Bash tool, pr
 - Weather (Open-Meteo, no key) and the S&P 500 (Yahoo Finance chart endpoint, unofficial, no
   key) live in `src/lib/extras/`. The background fetches them with each refresh (own freshness
   windows; forced when the place, units or ticker setting changes) and caches them in
-  `chrome.storage.local` (`weather`, `market`); the new tab only reads that cache. Their host
+  `chrome.storage.local` (`weather`, `markets`); the new tab only reads that cache. Their host
   access is requested from Settings like feeds; `extrasOrigins()` keeps it from being released.
 - Never hand a Svelte `$state` value straight to `chrome.storage`: a Proxy is stored as
   `{"0": …}`. Pass plain copies (`$state.snapshot`); `normalizeSettings()` repairs on read/write.

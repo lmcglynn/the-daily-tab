@@ -1,6 +1,7 @@
 <script lang="ts">
   // Query params: theme=day|night|system, photos=ink|color,
   // state=normal|offline|firstrun|newedition, toolbar=0 (hide for screenshots).
+  import { clipFromItem, toggleClipping } from '@/lib/clippings';
   import FrontPage from '@/ui/FrontPage.svelte';
   import { buildFrontPage } from '@/ui/model';
   import * as fx from '@@/fixtures/frontpage';
@@ -8,7 +9,7 @@
   const params = new URLSearchParams(location.search);
   const theme = params.get('theme') ?? 'system';
   const photos = params.get('photos') ?? 'ink';
-  const state = params.get('state') ?? 'normal';
+  const pageState = params.get('state') ?? 'normal';
   const toolbar = params.get('toolbar') !== '0';
 
   const root = document.documentElement;
@@ -16,22 +17,39 @@
   else root.dataset.theme = theme;
   root.dataset.photos = photos;
 
-  const view = buildFrontPage({
-    edition: state === 'firstrun' ? null : fx.edition,
-    items: new Map(fx.items.map((i) => [i.id, i])),
-    feeds: fx.feeds,
-    states: fx.states,
-    // A real first run happens on install day: No. 1.
-    settings: state === 'firstrun' ? { ...fx.settings, installedAt: fx.NOW } : fx.settings,
-    lastVisitAt: state === 'firstrun' ? undefined : fx.lastVisitAt,
-    now: fx.NOW,
-    online: state !== 'offline',
-    weather: fx.weather,
-    markets: fx.markets,
-  });
+  let clippings = $state.raw(fx.clippings);
+  function save(id: string) {
+    const item = fx.items.find((i) => i.id === id);
+    const clip =
+      clippings.find((c) => c.id === id) ??
+      (item &&
+        clipFromItem(
+          item,
+          fx.feeds.find((f) => f.id === item.feedId),
+          fx.NOW,
+        ));
+    if (clip) clippings = toggleClipping(clippings, clip);
+  }
+
+  const view = $derived.by(() =>
+    buildFrontPage({
+      edition: pageState === 'firstrun' ? null : fx.edition,
+      items: new Map(fx.items.map((i) => [i.id, i])),
+      feeds: fx.feeds,
+      states: fx.states,
+      // A real first run happens on install day: No. 1.
+      settings: pageState === 'firstrun' ? { ...fx.settings, installedAt: fx.NOW } : fx.settings,
+      lastVisitAt: pageState === 'firstrun' ? undefined : fx.lastVisitAt,
+      now: fx.NOW,
+      online: pageState !== 'offline',
+      weather: fx.weather,
+      markets: fx.markets,
+      clippings: pageState === 'firstrun' ? [] : clippings,
+    }),
+  );
 
   const firstRun =
-    state === 'firstrun'
+    pageState === 'firstrun'
       ? {
           busy: false,
           sections: fx.settings.sections.map((name) => ({
@@ -53,9 +71,10 @@
 <FrontPage
   {view}
   {firstRun}
-  newEdition={state === 'newedition' ? { count: 6 } : null}
+  newEdition={pageState === 'newedition' ? { count: 6 } : null}
   onmore={(c) => console.info('more in', c)}
   onopen={(id) => console.info('open', id)}
+  onsave={save}
 />
 
 {#if toolbar}
@@ -70,7 +89,7 @@
     {/each}
     <span>|</span>
     {#each ['normal', 'offline', 'firstrun', 'newedition'] as s (s)}
-      <a href={link({ state: s })} aria-current={state === s}>{s}</a>
+      <a href={link({ state: s })} aria-current={pageState === s}>{s}</a>
     {/each}
   </nav>
 {/if}

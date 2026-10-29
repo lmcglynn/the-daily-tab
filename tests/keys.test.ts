@@ -26,10 +26,11 @@ const press = (key: string, target: EventTarget | null = null, mods: Partial<Key
   });
 
 describe('keyAction', () => {
-  it('maps j/k/o/r/n', () => {
+  it('maps j/k/o/s/r/n', () => {
     expect(press('j')).toBe('next');
     expect(press('k')).toBe('prev');
     expect(press('o')).toBe('open');
+    expect(press('s')).toBe('save');
     expect(press('r')).toBe('refresh');
     expect(press('n')).toBe('new');
     expect(press('x')).toBeNull();

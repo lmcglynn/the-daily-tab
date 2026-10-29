@@ -81,6 +81,7 @@
               <li><a href="#{s.anchor}">{s.name}</a></li>
             {/each}
             <li><a href="#in-brief">In Brief</a></li>
+            {#if view.clippings.length}<li><a href="#clippings">Clippings</a></li>{/if}
           </ul>
         </nav>
       {/if}

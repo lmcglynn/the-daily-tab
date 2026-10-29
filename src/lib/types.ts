@@ -45,6 +45,20 @@ export interface Item {
   storyId?: string;
 }
 
+/** A story the reader saved (lib/clippings.ts): a copy that outlives the item. */
+export interface Clipping {
+  /** The item's id. */
+  id: string;
+  title: string;
+  link: string;
+  /** Feed title when saved. */
+  source: string;
+  summary: string;
+  imageUrl?: string;
+  publishedAt: number;
+  savedAt: number;
+}
+
 export interface EditionSection {
   category: string;
   itemIds: string[];

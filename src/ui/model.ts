@@ -1,5 +1,6 @@
 import { describeWeather, reportMatches } from '@/lib/extras/weather-words';
 import type {
+  Clipping,
   Edition,
   Feed,
   FeedState,
@@ -34,6 +35,8 @@ export interface StoryView {
   imageUrl?: string;
   read: boolean;
   isNew: boolean;
+  /** In the reader's clippings. */
+  saved: boolean;
 }
 
 export interface WeatherView {
@@ -105,6 +108,8 @@ export interface FrontPageView {
   secondary: StoryView[];
   bands: BandView[];
   brief: StoryView[];
+  /** Saved stories, newest first. */
+  clippings: StoryView[];
   corrections: string[];
 }
 
@@ -121,6 +126,7 @@ export interface FrontPageInput {
   more?: Map<string, string[]>;
   weather?: WeatherReport | null;
   markets?: Record<string, MarketReport>;
+  clippings?: Clipping[];
 }
 
 const WEATHER_MAX_AGE_MS = 6 * 60 * 60_000;
@@ -240,6 +246,8 @@ export function marketView(
 export function buildFrontPage(input: FrontPageInput): FrontPageView {
   const { edition, items, feeds, settings, now } = input;
   const feedById = new Map(feeds.map((f) => [f.id, f]));
+  const clippings = input.clippings ?? [];
+  const savedIds = new Set(clippings.map((c) => c.id));
 
   const story = (id: string, deckMax: number): StoryView | null => {
     const item = items.get(id);
@@ -258,6 +266,7 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
       body,
       read: !!item.readAt,
       isNew: input.lastVisitAt !== undefined && item.fetchedAt > input.lastVisitAt,
+      saved: savedIds.has(item.id),
     };
     if (item.imageUrl) view.imageUrl = item.imageUrl;
     return view;
@@ -322,8 +331,28 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
     secondary,
     bands,
     brief,
+    clippings: clippings.map((c) => clippingView(c, now)),
     corrections: edition ? corrections(input.states, feedById) : [],
   };
+}
+
+function clippingView(c: Clipping, now: number): StoryView {
+  const view: StoryView = {
+    id: c.id,
+    title: c.title,
+    link: c.link,
+    source: c.source,
+    kicker: '',
+    ago: c.publishedAt ? ago(c.publishedAt, now) : '',
+    datetime: new Date(c.publishedAt || c.savedAt).toISOString(),
+    deck: '',
+    body: '',
+    read: false,
+    isNew: false,
+    saved: true,
+  };
+  if (c.imageUrl) view.imageUrl = c.imageUrl;
+  return view;
 }
 
 function corrections(states: FeedState[], feedById: Map<string, Feed>): string[] {

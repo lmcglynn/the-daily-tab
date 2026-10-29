@@ -1,9 +1,11 @@
 // Everything the new tab reads, all from local storage; no network on this path.
+import { asClippings } from './clippings';
 import type { DailyTabDB } from './db';
 import { editionItemIds } from './edition/compose';
 import { normalizeSettings } from './defaults';
 import { getFeeds, getLocalState, getSettings, isFeedKey } from './storage';
 import type {
+  Clipping,
   Edition,
   Feed,
   FeedState,
@@ -25,6 +27,8 @@ export interface Snapshot {
   weather: WeatherReport | null;
   /** Quotes by symbol. */
   markets: Record<string, MarketReport>;
+  /** Saved stories, newest first. */
+  clippings: Clipping[];
 }
 
 /** Pull the storage.local values the front page uses, tolerating anything malformed. */
@@ -43,6 +47,7 @@ export function localExtras(local: Record<string, unknown>) {
     lastVisitAt: typeof lastVisitAt === 'number' ? lastVisitAt : undefined,
     weather: weather && typeof weather.temp === 'number' ? weather : null,
     markets,
+    clippings: asClippings(local.clippings),
   };
 }
 

@@ -58,7 +58,7 @@
   globalThis.__dailyTabPrefetch = Promise.all([
     readDB(),
     chrome.storage.sync.get(null),
-    chrome.storage.local.get(['lastVisitAt', 'weather', 'markets']),
+    chrome.storage.local.get(['lastVisitAt', 'weather', 'markets', 'clippings']),
   ]).then(
     ([db, sync, local]) => ({ db, sync, local }),
     () => null,
