@@ -5,7 +5,10 @@ import { refreshFeeds, type RefreshReport } from '@/lib/engine/refresh';
 import { lookupTicker } from '@/lib/extras/market';
 import { MARKETS_KEY, SCORES_KEY, WEATHER_KEY, refreshExtras } from '@/lib/extras/refresh';
 import { fetchTeams } from '@/lib/extras/scores';
+import { asScores } from '@/lib/frontpage-data';
 import { HIDDEN_KEY, asHidden, hiddenKeys } from '@/lib/hidden';
+import { blockedWords } from '@/lib/spoilers';
+import type { Settings } from '@/lib/types';
 import { geocode } from '@/lib/extras/weather';
 import { discoverFeeds } from '@/lib/feed/discover';
 import type { Broadcast, Request, TabMessage } from '@/lib/messages';
@@ -53,6 +56,10 @@ export default defineBackground(() => {
   browser.storage.onChanged.addListener((changes, area) => {
     // Hidden stories shown again (Settings): recompose so they come back. Hiding needs no
     // recompose; the page fills the spot itself.
+    // In spoiler mode, a game starting or ending changes which opponents are spoilers.
+    if (area === 'local' && changes[SCORES_KEY]) {
+      void getSettings().then((s) => s.spoilerMode && s.teams.length && scheduleCompose());
+    }
     if (area === 'local' && changes[HIDDEN_KEY]) {
       const count = (v: unknown) => asHidden(v, Date.now()).length;
       if (count(changes[HIDDEN_KEY].newValue) < count(changes[HIDDEN_KEY].oldValue)) {
@@ -153,9 +160,25 @@ function scheduleFeedsChanged() {
 }
 
 const layoutKey = (v: unknown) => {
-  const s = (v ?? {}) as { sections?: unknown; mutedWords?: unknown };
-  return JSON.stringify([s.sections ?? [], s.mutedWords ?? []]);
+  const s = (v ?? {}) as {
+    sections?: unknown;
+    mutedWords?: unknown;
+    spoilerMode?: unknown;
+    teams?: unknown;
+  };
+  return JSON.stringify([
+    s.sections ?? [],
+    s.mutedWords ?? [],
+    s.spoilerMode === true,
+    s.spoilerMode === true ? (s.teams ?? []) : [],
+  ]);
 };
+
+/** Words that keep stories off the page: muted topics, plus spoilers in spoiler mode. */
+async function composeWords(settings: Settings): Promise<string[]> {
+  const local = await browser.storage.local.get(SCORES_KEY);
+  return blockedWords(settings, asScores(local[SCORES_KEY]), Date.now());
+}
 
 let composeTimer: ReturnType<typeof setTimeout> | undefined;
 function scheduleCompose() {
@@ -191,7 +214,7 @@ async function doRefresh(force: boolean): Promise<RefreshReport | null> {
       feeds,
       settings.sections,
       Date.now(),
-      settings.mutedWords,
+      await composeWords(settings),
       await hiddenNow(),
     );
     if (isNew && edition) {
@@ -254,7 +277,7 @@ async function handle(msg: Request): Promise<unknown> {
         feeds,
         settings.sections,
         Date.now(),
-        settings.mutedWords,
+        await composeWords(settings),
         await hiddenNow(),
       );
       if (isNew && edition) {

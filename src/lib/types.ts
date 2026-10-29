@@ -141,6 +141,8 @@ export interface SportsTeam {
   /** "Los Angeles Lakers" */
   name: string;
   abbr: string;
+  /** "Lakers": what headlines call the team (spoiler mode). Absent for teams followed earlier. */
+  nickname?: string;
 }
 
 export interface GameSide {
@@ -202,4 +204,6 @@ export interface Settings {
   mutedWords: string[];
   /** Scores box under the markets, in display order; empty hides it. */
   teams: SportsTeam[];
+  /** Hide the scores box and stories naming these teams or their opponents (lib/spoilers.ts). */
+  spoilerMode: boolean;
 }

@@ -40,12 +40,17 @@ export function parseTeams(json: unknown, league: string): SportsTeam[] {
   const teams = arr(obj(arr(obj(arr(obj(json).sports)[0]).leagues)[0]).teams)
     .map((t) => obj(obj(t).team))
     .filter((t) => TEAM_ID.test(str(t.id)) && str(t.displayName))
-    .map((t) => ({
-      league,
-      id: str(t.id),
-      name: str(t.displayName),
-      abbr: str(t.abbreviation),
-    }));
+    .map((t) => {
+      const team: SportsTeam = {
+        league,
+        id: str(t.id),
+        name: str(t.displayName),
+        abbr: str(t.abbreviation),
+      };
+      const nickname = str(t.shortDisplayName) || str(t.name);
+      if (nickname) team.nickname = nickname;
+      return team;
+    });
   return teams.sort((a, b) => a.name.localeCompare(b.name));
 }
 

@@ -505,6 +505,85 @@ try {
   await page2.eval(`document.querySelector('dialog.search').close()`);
   await sleep(150);
 
+  step('spoiler mode: hides the scores box and stories naming your teams, until switched off');
+  // A team named after a word in the lead headline, with a game an hour ago, set straight in
+  // storage (ESPN refuses headless Edge).
+  await page2.send('Page.bringToFront');
+  const spoilerLead = await page2.eval(`(() => {
+    const a = document.querySelector('.slot-lead article');
+    return { id: a.dataset.story, title: a.querySelector('.headline a').textContent };
+  })()`);
+  const nick = spoilerLead.title
+    .split(/[^A-Za-z]+/)
+    .filter((w) => w.length >= 5)
+    .sort((a, b) => b.length - a.length)[0];
+  const team = {
+    league: 'basketball/nba',
+    id: '990',
+    name: `Testville ${nick}`,
+    abbr: 'TST',
+    nickname: nick,
+  };
+  await page2.eval(`(() => {
+    const now = Date.now();
+    const side = (id, name, score) => ({ id, name, abbr: name.slice(0, 3).toUpperCase(), score });
+    return chrome.storage.local.set({ scores: { 'basketball/nba:990': {
+      at: now, key: 'basketball/nba:990', current: null,
+      last: { id: 'x', date: now - 3600e3, state: 'post', detail: 'Final',
+        home: side('990', ${JSON.stringify(nick)}, 101), away: side('991', 'Zyzzyvas', 99) },
+    } } });
+  })()`);
+  await page2.eval(
+    `chrome.storage.sync.get('settings').then(({ settings }) => chrome.storage.sync.set({ settings: { ...settings, teams: [${JSON.stringify(team)}], spoilerMode: false } }))`,
+  );
+  const spoilerState = () =>
+    page2.eval(`(() => {
+      const re = new RegExp('\\\\b${nick}', 'i');
+      const stories = [...document.querySelectorAll('main article[data-story]')];
+      return {
+        toggle: !!document.querySelector('.folio-icon.spoilers'),
+        on: document.querySelector('.folio-icon.spoilers')?.getAttribute('aria-pressed') === 'true',
+        label: document.querySelector('.spoilers-label')?.textContent ?? '',
+        scoresBox: !!document.querySelector('.scores'),
+        lead: document.querySelector('.slot-lead article')?.dataset.story,
+        mentions: stories.filter((a) => re.test(a.textContent)).length,
+      };
+    })()`);
+  let st = await spoilerState();
+  for (let i = 0; i < 30 && !(st.toggle && st.scoresBox); i++) {
+    await sleep(200);
+    st = await spoilerState();
+  }
+  check(st.toggle && st.scoresBox && !st.on, `switch shown, scores box up (team "${nick}")`);
+  await page2.eval(`document.querySelector('.folio-icon.spoilers').click()`);
+  for (let i = 0; i < 40 && !(st.on && st.mentions === 0 && st.lead !== spoilerLead.id); i++) {
+    await sleep(200);
+    st = await spoilerState();
+  }
+  const syncedOn = (await page2.eval(`chrome.storage.sync.get('settings')`)).settings.spoilerMode;
+  check(
+    st.on &&
+      st.label === 'No spoilers' &&
+      !st.scoresBox &&
+      st.mentions === 0 &&
+      st.lead !== spoilerLead.id &&
+      syncedOn,
+    `on: "${st.label}", scores box hidden, ${st.mentions} stories mention "${nick}", new lead (no button to click)`,
+  );
+  await page2.eval(`document.querySelector('.folio-icon.spoilers').click()`);
+  for (let i = 0; i < 40 && !(!st.on && st.scoresBox && st.lead === spoilerLead.id); i++) {
+    await sleep(200);
+    st = await spoilerState();
+  }
+  check(
+    !st.on && st.scoresBox && st.lead === spoilerLead.id,
+    'off again: the scores box and the original lead are back',
+  );
+  await page2.eval(
+    `chrome.storage.sync.get('settings').then(({ settings }) => chrome.storage.sync.set({ settings: { ...settings, teams: [], spoilerMode: false } }))`,
+  );
+  await sleep(1500);
+
   step('keyboard: o opens the current story');
   await page2.send('Page.bringToFront');
   await press(page2, 'j');

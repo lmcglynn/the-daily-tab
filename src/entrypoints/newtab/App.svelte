@@ -21,6 +21,7 @@
   } from '@/lib/frontpage-data';
   import type { Broadcast, TabMessage } from '@/lib/messages';
   import { muteMatcher } from '@/lib/mute';
+  import { blockedWords } from '@/lib/spoilers';
   import { originPatterns } from '@/lib/seed';
   import { getFeeds, isFeedKey, removeFeed, saveSettings, setLastVisitAt } from '@/lib/storage';
   import type { Edition, Item } from '@/lib/types';
@@ -91,6 +92,10 @@
 
   // Live updates ----------------------------------------------------------------------------
 
+  // Set when spoiler mode is switched (here or in another tab): the edition recomposed for it
+  // replaces the page directly instead of waiting behind the "New edition" button.
+  let applyNextEdition = false;
+
   async function onEdition(id: string) {
     if (!snap || snap.edition?.id === id || pending?.edition.id === id) return;
     const db = await dbReady;
@@ -101,6 +106,14 @@
       // The first edition replaces the chooser directly; there is nothing to reflow.
       snap = { ...snap, edition, items };
       starting = false;
+      fade();
+      return;
+    }
+    if (applyNextEdition) {
+      applyNextEdition = false;
+      snap = { ...snap, edition, items };
+      pending = null;
+      more = new Map();
       fade();
       return;
     }
@@ -140,6 +153,7 @@
     if (!snap) return;
     if (area === 'sync' && changes.settings) {
       const settings = normalizeSettings(changes.settings.newValue);
+      if (settings.spoilerMode !== snap.settings.spoilerMode) applyNextEdition = true;
       snap = { ...snap, settings };
       applyAppearance(settings);
     }
@@ -270,7 +284,7 @@
       categoryOf: new Map(snap.feeds.map((f) => [f.id, f.category])),
       category: snap.feeds.find((f) => f.id === item.feedId)?.category ?? '',
       exclude,
-      muted: muteMatcher(snap.settings.mutedWords),
+      muted: blocked,
     });
     const edition = replaceInEdition(snap.edition, id, replacement?.id ?? null);
     snap = {
@@ -312,6 +326,26 @@
     noticeTimer = setTimeout(() => (notice = null), 8000);
   }
 
+  // Muted topics, plus spoilers in spoiler mode: what "More in …", search and a hidden story's
+  // replacement leave out (the background leaves them out of every edition).
+  const blocked = $derived(
+    snap ? muteMatcher(blockedWords(snap.settings, snap.scores, now)) : () => false,
+  );
+
+  /** Spoiler mode on or off: the scores box goes at once, and the page is recomposed. */
+  async function toggleSpoilers() {
+    if (!snap) return;
+    const spoilerMode = !snap.settings.spoilerMode;
+    snap = { ...snap, settings: { ...snap.settings, spoilerMode } };
+    applyNextEdition = true;
+    await saveSettings({ spoilerMode });
+    const res = (await browser.runtime.sendMessage({ type: 'compose' }).catch(() => null)) as {
+      editionId: string | null;
+    } | null;
+    if (res?.editionId) await onEdition(res.editionId);
+    applyNextEdition = false;
+  }
+
   // Search ----------------------------------------------------------------------------------
 
   // Every stored story, loaded once when search opens (a few thousand at most).
@@ -321,7 +355,12 @@
   const searchItem = (id: string) => searchEntries?.find((e) => e.item.id === id)?.item;
 
   const searchResult = $derived(
-    searchEntries ? searchStories(searchEntries, searchQuery) : { items: [], total: 0 },
+    searchEntries
+      ? searchStories(
+          searchEntries.filter((e) => !blocked(e.item)),
+          searchQuery,
+        )
+      : { items: [], total: 0 },
   );
   const searchViews = $derived.by(() => {
     if (!snap) return [];
@@ -355,7 +394,7 @@
       category,
       shownKeys(snap.items),
       6,
-      muteMatcher(snap.settings.mutedWords),
+      blocked,
     );
     snap = { ...snap, items: withItems(snap.items, extra) };
     more = withEntry(
@@ -532,6 +571,7 @@
     onstart={start}
     onrefresh={refresh}
     onsearch={() => void openSearch()}
+    onspoilers={() => void toggleSpoilers()}
     settingsUrl={browser.runtime.getURL('/options.html')}
   />
 {/if}

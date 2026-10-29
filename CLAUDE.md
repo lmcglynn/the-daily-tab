@@ -85,7 +85,10 @@ Node is installed machine-wide (`C:\Program Files\nodejs`). In the Bash tool, pr
   re-checks every 2 minutes. Their host access is requested from Settings like feeds;
   `extrasOrigins()` keeps it from being released.
 - Muted topics (`settings.mutedWords`, `lib/mute.ts`) are applied when composing and in
-  "More in …"; the background recomposes when they change. Outlets are feeds with the same title
+  "More in …"; the background recomposes when they change. Spoiler mode (`settings.spoilerMode`,
+  `lib/spoilers.ts`) adds the followed teams' names and their recent opponents to those words
+  (`blockedWords`) and hides the scores box; switching it recomposes and the page swaps the new
+  edition in directly. Outlets are feeds with the same title
   (`outletKey`): coverage and variety count outlets, grouping still joins any two feeds.
 - Never hand a Svelte `$state` value straight to `chrome.storage`: a Proxy is stored as
   `{"0": …}`. Pass plain copies (`$state.snapshot`); `normalizeSettings()` repairs on read/write.

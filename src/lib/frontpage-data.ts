@@ -60,7 +60,7 @@ export function localExtras(local: Record<string, unknown>) {
   };
 }
 
-function asScores(v: unknown): Record<string, ScoreReport> {
+export function asScores(v: unknown): Record<string, ScoreReport> {
   const out: Record<string, ScoreReport> = {};
   if (!v || typeof v !== 'object') return out;
   for (const [key, r] of Object.entries(v as Record<string, ScoreReport>)) {

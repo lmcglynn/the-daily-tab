@@ -11,6 +11,8 @@
   const photos = params.get('photos') ?? 'ink';
   const pageState = params.get('state') ?? 'normal';
   const toolbar = params.get('toolbar') !== '0';
+  // spoilers=1 starts in spoiler mode (the preview hides the box; it can't recompose).
+  let spoilerMode = $state(params.get('spoilers') === '1');
 
   const root = document.documentElement;
   if (theme === 'system') delete root.dataset.theme;
@@ -38,7 +40,10 @@
       feeds: fx.feeds,
       states: fx.states,
       // A real first run happens on install day: No. 1.
-      settings: pageState === 'firstrun' ? { ...fx.settings, installedAt: fx.NOW } : fx.settings,
+      settings:
+        pageState === 'firstrun'
+          ? { ...fx.settings, installedAt: fx.NOW }
+          : { ...fx.settings, spoilerMode },
       lastVisitAt: pageState === 'firstrun' ? undefined : fx.lastVisitAt,
       now: fx.NOW,
       online: pageState !== 'offline',
@@ -77,6 +82,7 @@
   onopen={(id) => console.info('open', id)}
   onsave={save}
   onsearch={() => console.info('search')}
+  onspoilers={() => (spoilerMode = !spoilerMode)}
   settingsUrl="#settings"
 />
 

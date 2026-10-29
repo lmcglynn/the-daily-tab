@@ -7,12 +7,15 @@
     refreshing = false,
     onrefresh,
     onsearch,
+    onspoilers,
     settingsUrl = null,
   }: {
     view: FrontPageView;
     refreshing?: boolean;
     onrefresh?: () => void;
     onsearch?: () => void;
+    /** Toggle spoiler mode (absent in the dev preview's first run). */
+    onspoilers?: () => void;
     /** Link to the settings page (absent in the dev preview). */
     settingsUrl?: string | null;
   } = $props();
@@ -25,6 +28,8 @@
       return '';
     }
   };
+
+  const spoilerSwitch = $derived(!!onspoilers && view.spoilers.available);
 </script>
 
 <header class="masthead">
@@ -78,10 +83,36 @@
         title="Fetch the latest stories now"
         aria-label={refreshing ? 'Updating' : `${view.updatedLabel}. Refresh now`}
         >{refreshing ? 'Updating…' : view.updatedLabel}</button
-      >{:else}<span>{view.updatedLabel}</span>{/if}{#if settingsUrl || onsearch}<span
-        class="sep"
-        aria-hidden="true">·</span
-      >{/if}{#if settingsUrl}<a
+      >{:else}<span>{view.updatedLabel}</span
+      >{/if}{#if spoilerSwitch || settingsUrl || onsearch}<span class="sep" aria-hidden="true"
+        >·</span
+      >{/if}{#if spoilerSwitch}<button
+        type="button"
+        class="folio-icon spoilers"
+        class:on={view.spoilers.on}
+        aria-pressed={view.spoilers.on}
+        onclick={onspoilers}
+        title={view.spoilers.on
+          ? 'Spoiler mode is on: scores and stories about your teams are hidden. Click to show them.'
+          : 'Spoiler mode: hide scores and stories about your teams'}
+        aria-label="Spoiler mode"
+        ><svg
+          width="15"
+          height="15"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          aria-hidden="true"
+          ><path d="M1.6 8S4 3.8 8 3.8 14.4 8 14.4 8 12 12.2 8 12.2 1.6 8 1.6 8Z" /><circle
+            cx="8"
+            cy="8"
+            r="2"
+          /><path d="M2.6 13.4 13.4 2.6" stroke-width="1.7" /></svg
+        >{#if view.spoilers.on}<span class="spoilers-label">No spoilers</span>{/if}</button
+      >{#if settingsUrl || onsearch}<span class="sep" aria-hidden="true">·</span
+        >{/if}{/if}{#if settingsUrl}<a
         class="folio-icon"
         href={settingsUrl}
         title="Settings"
@@ -296,6 +327,25 @@
     /* The icons may be taller than the type; they overhang rather than heighten the folio. */
     margin-block: -3px;
     color: var(--ink);
+  }
+  .spoilers {
+    gap: 5px;
+    grid-auto-flow: column;
+  }
+  /* On: a small inverted label, so it's plain why the scores have gone. */
+  .spoilers.on {
+    padding: 2px 7px 2px 5px;
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .spoilers.on:hover {
+    color: var(--paper);
+    opacity: 0.85;
+  }
+  .spoilers-label {
+    font: 600 10.5px/1 var(--font-label);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
   .folio-icon:hover {
     color: var(--ink-2);

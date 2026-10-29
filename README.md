@@ -98,6 +98,15 @@ to your Clippings (or removes it), **h** hides it, **/** searches, **n** shows a
 one is waiting, and **r** refreshes now. If the address bar has focus on a new tab, click the page
 first.
 
+## Spoiler mode
+
+If you follow teams in the scores box, an eye icon appears in the date line under the masthead.
+Click it to turn on spoiler mode: the scores box is hidden, and so are stories that name your
+teams (by nickname, like "Lakers", or full name) or the team each one is playing or played in the
+last day. The page is rebuilt straight away, with other stories in their place, and the icon
+becomes a dark **No spoilers** label so you can tell it's on. It stays on, on every new tab, until
+you click it again.
+
 ## Search
 
 Press **/** or click the magnifying glass at the end of the date line to search the last month of stories

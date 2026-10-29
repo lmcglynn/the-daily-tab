@@ -132,8 +132,10 @@ export interface FrontPageView {
   leadColumn: StoryView[];
   /** Markets box at the foot of the lead's text column (cycled with arrows). */
   markets: MarketView[];
-  /** Scores box under it, one followed team at a time. */
+  /** Scores box under it, one followed team at a time (none in spoiler mode). */
   scores: ScoreView[];
+  /** The spoiler-mode switch: shown when the reader follows teams. */
+  spoilers: { available: boolean; on: boolean };
   secondary: StoryView[];
   bands: BandView[];
   brief: StoryView[];
@@ -469,7 +471,8 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
     lead,
     leadColumn,
     markets: edition ? marketViews(input.markets, settings, now) : [],
-    scores: edition ? scoreViews(input.scores, settings, now) : [],
+    scores: edition && !settings.spoilerMode ? scoreViews(input.scores, settings, now) : [],
+    spoilers: { available: settings.teams.length > 0, on: settings.spoilerMode },
     secondary,
     bands,
     brief,

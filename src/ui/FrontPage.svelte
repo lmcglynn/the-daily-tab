@@ -20,6 +20,7 @@
     onstart,
     onrefresh,
     onsearch,
+    onspoilers,
     settingsUrl = null,
   }: {
     view: FrontPageView;
@@ -43,6 +44,8 @@
     onrefresh?: () => void;
     /** Open search (absent in the dev preview). */
     onsearch?: () => void;
+    /** Toggle spoiler mode. */
+    onspoilers?: () => void;
   } = $props();
 
   const widths = [96, 88, 92, 70, 84, 40];
@@ -56,6 +59,7 @@
     {refreshing}
     onrefresh={firstRun ? undefined : onrefresh}
     onsearch={firstRun ? undefined : onsearch}
+    onspoilers={firstRun ? undefined : onspoilers}
     {settingsUrl}
   />
 

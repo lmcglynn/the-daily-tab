@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tickers: [],
   mutedWords: [],
   teams: [],
+  spoilerMode: false,
 };
 
 function asPlace(v: unknown): WeatherPlace | null {
@@ -77,6 +78,7 @@ export function normalizeSettings(raw: unknown): Settings {
     tickers: asTickers(r),
     mutedWords: cleanMutedWords(asArray(r.mutedWords) ?? []),
     teams: asTeams(r.teams),
+    spoilerMode: r.spoilerMode === true,
   };
 }
 
@@ -86,17 +88,19 @@ function asTeams(v: unknown): SportsTeam[] {
   const out: SportsTeam[] = [];
   for (const t of asArray(v) ?? []) {
     if (!t || typeof t !== 'object') continue;
-    const { league, id, name, abbr } = t as Partial<SportsTeam>;
+    const { league, id, name, abbr, nickname } = t as Partial<SportsTeam>;
     if (typeof league !== 'string' || !LEAGUE_IDS.has(league)) continue;
     if (typeof id !== 'string' || !TEAM_ID.test(id) || typeof name !== 'string' || !name.trim()) {
       continue;
     }
-    const team = {
+    const team: SportsTeam = {
       league,
       id,
       name: name.trim().slice(0, 60),
       abbr: String(abbr ?? '').slice(0, 8),
     };
+    if (typeof nickname === 'string' && nickname.trim())
+      team.nickname = nickname.trim().slice(0, 40);
     if (out.some((o) => teamKey(o) === teamKey(team))) continue;
     out.push(team);
   }
