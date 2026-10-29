@@ -1,4 +1,5 @@
 import { decodeBody, fetchFeed } from '@/lib/engine/fetch';
+import { quietSince } from '@/lib/dormant';
 import {
   MAX_BACKOFF_MS,
   MAX_ITEMS_PER_FEED,
@@ -176,6 +177,47 @@ describe('refreshFeeds', () => {
       failCount: 0,
       lastSuccessAt: NOW,
     });
+  });
+
+  it('remembers the newest entry date, even when every entry is too old to keep', async () => {
+    const db = freshDB();
+    const f = feed('quiet');
+    const old = Date.parse('2025-12-13T08:01:00Z');
+    const rss = `<?xml version="1.0"?><rss version="2.0"><channel><title>Quiet</title>
+      <item><title>Last story before the pause</title><link>https://quiet.example.com/a</link>
+        <pubDate>${new Date(old).toUTCString()}</pubDate></item>
+      <item><title>An older story still</title><link>https://quiet.example.com/b</link>
+        <pubDate>${new Date(old - 5 * DAY).toUTCString()}</pubDate></item>
+    </channel></rss>`;
+    let status = 200;
+    const run = () =>
+      refreshFeeds({
+        db,
+        feeds: [f],
+        fetch: mockFetch({
+          [f.url]: () => (status === 304 ? new Response(null, { status }) : new Response(rss)),
+        }),
+        now: () => NOW,
+        refreshMinutes: 15,
+        force: true,
+      });
+    await run();
+    expect(await db.items.count()).toBe(0);
+    const state = (await db.feedState.get(f.id))!;
+    expect(state).toMatchObject({ status: 'ok', latestItemAt: old });
+    expect(quietSince(state, NOW)).toBe(old);
+    // "Not modified" keeps what we knew.
+    status = 304;
+    await run();
+    expect((await db.feedState.get(f.id))!.latestItemAt).toBe(old);
+  });
+
+  it('flags a feed as quiet only after two weeks without a story', () => {
+    const base = { feedId: 'x', status: 'ok' as const, failCount: 0 };
+    expect(quietSince({ ...base, latestItemAt: NOW - 13 * DAY }, NOW)).toBeNull();
+    expect(quietSince({ ...base, latestItemAt: NOW - 15 * DAY }, NOW)).toBe(NOW - 15 * DAY);
+    expect(quietSince({ ...base }, NOW)).toBeNull(); // no dated entries
+    expect(quietSince({ ...base, status: 'error', latestItemAt: NOW - 90 * DAY }, NOW)).toBeNull(); // failures are reported as failures
   });
 
   it('backs off after failures and skips the feed until then', async () => {

@@ -1,7 +1,8 @@
 <script lang="ts">
+  import { quietSince } from '@/lib/dormant';
   import { feedsIn } from '@/lib/feeds-edit';
   import type { Feed, FeedState } from '@/lib/types';
-  import { ago, clock } from '@/ui/format';
+  import { ago, clock, shortDate } from '@/ui/format';
 
   let {
     sections,
@@ -52,6 +53,8 @@
       return `Failed${s.lastErrorAt ? ` at ${clock(s.lastErrorAt)}` : ''}: ${s.lastError}${retry}`;
     }
     if (s.status === 'no-permission') return 'Needs permission to be read';
+    const quiet = quietSince(s, now);
+    if (quiet !== null) return `Working, but no new stories since ${shortDate(quiet)}`;
     if (!s.lastSuccessAt) return 'Updated';
     if (now - s.lastSuccessAt < 60_000) return 'Updated just now';
     const age = ago(s.lastSuccessAt, now);
@@ -233,7 +236,11 @@
                 onkeydown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
               />
               <span class="url">{f.url}</span>
-              <span class="status" class:bad={states.get(f.id)?.status === 'error'}>
+              <span
+                class="status"
+                class:bad={states.get(f.id)?.status === 'error' ||
+                  quietSince(states.get(f.id), now) !== null}
+              >
                 {status(f)}
                 {#if !granted.has(pattern(f))}
                   <button type="button" class="link" onclick={() => onallow(f)}>Allow</button>

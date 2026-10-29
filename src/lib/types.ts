@@ -23,6 +23,8 @@ export interface FeedState {
   failCount: number;
   /** Backoff: don't fetch again before this time. */
   nextFetchAt?: number;
+  /** Date of the feed's newest entry when last fetched, even one too old to keep. */
+  latestItemAt?: number;
 }
 
 export interface Item {

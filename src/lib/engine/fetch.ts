@@ -1,4 +1,4 @@
-import { normalizeEntries } from '../feed/normalize';
+import { newestEntryAt, normalizeEntries } from '../feed/normalize';
 import { parseFeed } from '../feed/parse';
 import type { Feed, FeedState, Item } from '../types';
 
@@ -9,7 +9,15 @@ export const FEED_ACCEPT =
   'application/rss+xml, application/atom+xml, application/rdf+xml;q=0.9, application/xml;q=0.8, text/xml;q=0.8, */*;q=0.1';
 
 export type FetchOutcome =
-  | { kind: 'ok'; items: Item[]; title: string; etag?: string; lastModified?: string }
+  | {
+      kind: 'ok';
+      items: Item[];
+      title: string;
+      etag?: string;
+      lastModified?: string;
+      /** Newest entry date in the feed, including entries too old to keep. */
+      latestAt?: number;
+    }
   | { kind: 'not-modified' }
   | { kind: 'error'; error: string };
 
@@ -128,6 +136,8 @@ async function fetchOnce(
       title: parsed.title,
       items: normalizeEntries(feed, parsed, opts.now),
     };
+    const latestAt = newestEntryAt(parsed, opts.now);
+    if (latestAt !== undefined) outcome.latestAt = latestAt;
     const etag = res.headers.get('etag');
     const lastModified = res.headers.get('last-modified');
     if (etag) outcome.etag = etag;

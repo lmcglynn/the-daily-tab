@@ -112,6 +112,8 @@ export async function refreshFeeds(deps: RefreshDeps): Promise<RefreshReport> {
         else delete next.etag;
         if (outcome.lastModified) next.lastModified = outcome.lastModified;
         else delete next.lastModified;
+        if (outcome.latestAt !== undefined) next.latestItemAt = outcome.latestAt;
+        else delete next.latestItemAt;
       }
     }
     await db.feedState.put(next);

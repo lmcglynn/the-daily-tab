@@ -38,6 +38,17 @@ export function normalizeDate(raw: string | undefined, fetchedAt: number): numbe
   return t;
 }
 
+/** The newest dated entry in a feed (undated entries don't count), or undefined. */
+export function newestEntryAt(parsed: ParsedFeed, fetchedAt: number): number | undefined {
+  let newest: number | undefined;
+  for (const e of parsed.entries) {
+    if (!e.published) continue;
+    const t = normalizeDate(e.published, fetchedAt);
+    if (newest === undefined || t > newest) newest = t;
+  }
+  return newest;
+}
+
 export function normalizeEntries(
   feed: Pick<Feed, 'id' | 'url'>,
   parsed: ParsedFeed,

@@ -23,6 +23,15 @@ export function dateLine(t: number): string {
   });
 }
 
+/** "Dec 13, 2025" */
+export function shortDate(t: number): string {
+  return new Date(t).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
 export function editionName(t: number): string {
   const h = new Date(t).getHours();
   if (h >= 5 && h < 12) return 'Morning Edition';
