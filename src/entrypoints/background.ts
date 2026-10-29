@@ -5,6 +5,7 @@ import { refreshFeeds, type RefreshReport } from '@/lib/engine/refresh';
 import { lookupTicker } from '@/lib/extras/market';
 import { MARKETS_KEY, SCORES_KEY, WEATHER_KEY, refreshExtras } from '@/lib/extras/refresh';
 import { fetchTeams } from '@/lib/extras/scores';
+import { HIDDEN_KEY, asHidden, hiddenKeys } from '@/lib/hidden';
 import { geocode } from '@/lib/extras/weather';
 import { discoverFeeds } from '@/lib/feed/discover';
 import type { Broadcast, Request, TabMessage } from '@/lib/messages';
@@ -14,8 +15,9 @@ import { getFeeds, getSettings, isFeedKey, saveFeeds, saveSettings } from '@/lib
 const ALARM = 'refresh';
 /** One-off, while a followed team is playing: keeps the scores box current between refreshes. */
 const SCORES_ALARM = 'scores';
-/** "Save to Clippings" on the right-click menu of a story's link or photo, on the new tab only. */
+/** "Save to Clippings" and "Hide this story" on a story's right-click menu, on the new tab only. */
 const CLIP_MENU = 'clip';
+const HIDE_MENU = 'hide';
 
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(async ({ reason }) => {
@@ -31,8 +33,10 @@ export default defineBackground(() => {
 
   // The page knows which story the link belongs to; hand it the link.
   browser.contextMenus.onClicked.addListener((info, tab) => {
-    if (info.menuItemId !== CLIP_MENU || tab?.id === undefined || !info.linkUrl) return;
-    const msg: TabMessage = { type: 'clip-link', url: info.linkUrl };
+    const item =
+      info.menuItemId === CLIP_MENU ? 'clip' : info.menuItemId === HIDE_MENU ? 'hide' : null;
+    if (!item || tab?.id === undefined || !info.linkUrl) return;
+    const msg: TabMessage = { type: 'story-menu-choice', item, url: info.linkUrl };
     browser.tabs.sendMessage(tab.id, msg).catch(() => undefined);
   });
 
@@ -47,6 +51,14 @@ export default defineBackground(() => {
   });
 
   browser.storage.onChanged.addListener((changes, area) => {
+    // Hidden stories shown again (Settings): recompose so they come back. Hiding needs no
+    // recompose; the page fills the spot itself.
+    if (area === 'local' && changes[HIDDEN_KEY]) {
+      const count = (v: unknown) => asHidden(v, Date.now()).length;
+      if (count(changes[HIDDEN_KEY].newValue) < count(changes[HIDDEN_KEY].oldValue)) {
+        scheduleCompose();
+      }
+    }
     if (area !== 'sync') return;
     const settings = changes.settings;
     const oldMin = (settings?.oldValue as { refreshMinutes?: number } | undefined)?.refreshMinutes;
@@ -100,12 +112,17 @@ async function runExtras(force: boolean): Promise<void> {
 
 async function createMenus() {
   await browser.contextMenus.removeAll();
-  browser.contextMenus.create({
-    id: CLIP_MENU,
-    title: 'Save to Clippings',
-    contexts: ['link', 'image'],
+  const where = {
+    contexts: ['link', 'image'] as ['link', 'image'],
     documentUrlPatterns: [browser.runtime.getURL('/newtab.html')],
-  });
+  };
+  browser.contextMenus.create({ id: CLIP_MENU, title: 'Save to Clippings', ...where });
+  browser.contextMenus.create({ id: HIDE_MENU, title: 'Hide this story', ...where });
+}
+
+async function hiddenNow(): Promise<Set<string>> {
+  const local = await browser.storage.local.get(HIDDEN_KEY);
+  return hiddenKeys(asHidden(local[HIDDEN_KEY], Date.now()));
 }
 
 async function seed() {
@@ -175,6 +192,7 @@ async function doRefresh(force: boolean): Promise<RefreshReport | null> {
       settings.sections,
       Date.now(),
       settings.mutedWords,
+      await hiddenNow(),
     );
     if (isNew && edition) {
       broadcast({ type: 'edition-updated', editionId: edition.id, number: edition.number });
@@ -219,14 +237,15 @@ async function handle(msg: Request): Promise<unknown> {
       } catch (e) {
         return { error: e instanceof Error ? e.message : String(e) };
       }
-    case 'clip-menu':
+    case 'story-menu':
       // Sent as the right button goes down, before the menu opens.
-      await browser.contextMenus
-        .update(CLIP_MENU, {
+      await Promise.all([
+        browser.contextMenus.update(CLIP_MENU, {
           visible: msg.saved !== null,
           title: msg.saved ? 'Remove from Clippings' : 'Save to Clippings',
-        })
-        .catch(() => undefined);
+        }),
+        browser.contextMenus.update(HIDE_MENU, { visible: msg.hideable }),
+      ]).catch(() => undefined);
       return null;
     case 'compose': {
       const [feeds, settings] = await Promise.all([getFeeds(), getSettings()]);
@@ -236,6 +255,7 @@ async function handle(msg: Request): Promise<unknown> {
         settings.sections,
         Date.now(),
         settings.mutedWords,
+        await hiddenNow(),
       );
       if (isNew && edition) {
         broadcast({ type: 'edition-updated', editionId: edition.id, number: edition.number });

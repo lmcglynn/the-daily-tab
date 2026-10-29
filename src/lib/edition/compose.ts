@@ -22,6 +22,8 @@ export interface ComposeInput {
   previousNumber: number;
   /** Stories mentioning these are left out (Settings → Muted topics). */
   mutedWords?: string[];
+  /** Item and story ids the reader hid. */
+  hidden?: Set<string>;
 }
 
 export function sectionOrder(feeds: Feed[], preferred: string[]): string[] {
@@ -58,7 +60,16 @@ export function composeEdition(input: ComposeInput): Edition | null {
   const sections = sectionOrder(feeds, input.sections);
 
   const muted = muteMatcher(input.mutedWords ?? []);
-  const known = input.items.filter((i) => categoryOf.has(i.feedId) && !muted(i)).sort(newestFirst);
+  const hidden = input.hidden ?? new Set<string>();
+  const known = input.items
+    .filter(
+      (i) =>
+        categoryOf.has(i.feedId) &&
+        !muted(i) &&
+        !hidden.has(i.id) &&
+        !(i.storyId && hidden.has(i.storyId)),
+    )
+    .sort(newestFirst);
   let pool = known.filter((i) => i.publishedAt >= now - POOL_WINDOW_MS);
   if (pool.length < POOL_MIN) pool = known.slice(0, POOL_FALLBACK);
   if (pool.length === 0) return null;

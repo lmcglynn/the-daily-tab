@@ -19,6 +19,7 @@
   import { extrasOrigins } from '@/lib/extras/refresh';
   import { feedIdFor } from '@/lib/hash';
   import type { Broadcast } from '@/lib/messages';
+  import { HIDDEN_KEY, asHidden } from '@/lib/hidden';
   import { muteMatcher } from '@/lib/mute';
   import type { OpmlFeed } from '@/lib/opml';
   import { originPatterns } from '@/lib/seed';
@@ -54,6 +55,14 @@
   let refreshNote = $state('');
 
   const sections = $derived(sectionList(settings.sections, feeds));
+
+  // Stories hidden from the page with the right-click menu (stored per device).
+  let hiddenCount = $state(0);
+  const reloadHidden = () =>
+    browser.storage.local
+      .get(HIDDEN_KEY)
+      .then((l) => (hiddenCount = asHidden(l[HIDDEN_KEY], Date.now()).length))
+      .catch(() => undefined);
 
   // How many stored stories each muted word matches, so the reader can see it working.
   let mutedCounts = $state.raw(new Map<string, number>());
@@ -269,6 +278,7 @@
   onMount(() => {
     void loadAll();
     const onStorage = (changes: Record<string, unknown>, area: string) => {
+      if (area === 'local' && HIDDEN_KEY in changes) void reloadHidden();
       if (area !== 'sync') return;
       if ('settings' in changes) {
         void getSettings().then((s) => {
@@ -281,6 +291,7 @@
     const onMessage = (msg: Broadcast) => {
       if (msg.type === 'refresh-state' && !msg.running) void reloadStates();
     };
+    void reloadHidden();
     browser.storage.onChanged.addListener(onStorage);
     browser.runtime.onMessage.addListener(onMessage);
     browser.permissions.onAdded.addListener(reloadGranted);
@@ -364,6 +375,18 @@
           counts={mutedCounts}
           onchange={(words: string[]) => void patchSettings({ mutedWords: words })}
         />
+        {#if hiddenCount}
+          <p class="hidden-stories">
+            You’ve hidden {hiddenCount}
+            {hiddenCount === 1 ? 'story' : 'stories'} from the page (right-click → Hide this story).
+            <button
+              type="button"
+              class="link"
+              onclick={() => void browser.storage.local.set({ [HIDDEN_KEY]: [] })}
+              >Show them again</button
+            >
+          </p>
+        {/if}
       </section>
 
       <section aria-labelledby="look-h">
@@ -591,5 +614,12 @@
   .swatch.night {
     background: #16140f;
     color: var(--spot-night, #e5645e);
+  }
+  .hidden-stories {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--rule);
+    font-size: 13.5px;
+    color: var(--ink-2);
   }
 </style>

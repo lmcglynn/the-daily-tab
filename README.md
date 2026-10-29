@@ -103,6 +103,13 @@ Point at a story and click **Save** next to its byline, right-click its headline
 are listed under **Clippings** at the foot of the page, linked from the section index, and stay
 there after the story itself drops off the paper. They're kept on this computer only.
 
+## Hiding a story
+
+Right-click a story's headline or photo and choose **Hide this story** to take it off the page.
+Its spot is filled with another story you haven't seen (nothing else moves), or simply closes up
+if there isn't one, and it stays out of later editions. To bring hidden stories back, use **Show
+them again** in Settings, under Muted topics.
+
 ## Updating
 
 ```sh

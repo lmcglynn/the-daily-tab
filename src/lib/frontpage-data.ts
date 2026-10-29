@@ -1,5 +1,6 @@
 // Everything the new tab reads, all from local storage; no network on this path.
 import { asClippings } from './clippings';
+import { asHidden } from './hidden';
 import type { DailyTabDB } from './db';
 import { editionItemIds } from './edition/compose';
 import { normalizeSettings } from './defaults';
@@ -9,6 +10,7 @@ import type {
   Edition,
   Feed,
   FeedState,
+  HiddenStory,
   Item,
   MarketReport,
   ScoreReport,
@@ -32,6 +34,8 @@ export interface Snapshot {
   clippings: Clipping[];
   /** Scores by league:id. */
   scores: Record<string, ScoreReport>;
+  /** Stories the reader hid. */
+  hidden: HiddenStory[];
 }
 
 /** Pull the storage.local values the front page uses, tolerating anything malformed. */
@@ -52,6 +56,7 @@ export function localExtras(local: Record<string, unknown>) {
     markets,
     clippings: asClippings(local.clippings),
     scores: asScores(local.scores),
+    hidden: asHidden(local.hidden, Date.now()),
   };
 }
 

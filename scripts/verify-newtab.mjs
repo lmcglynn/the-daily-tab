@@ -307,12 +307,12 @@ try {
   );
   page3.close();
 
-  step('right-click menu: "Save to Clippings"');
-  // The menu exists (update rejects for an unknown id).
+  step('right-click menu: "Save to Clippings" and "Hide this story"');
+  // The items exist (update rejects for an unknown id).
   const menu = await sw.eval(
-    `chrome.contextMenus.update('clip', {}).then(() => 'ok', (e) => e.message)`,
+    `Promise.all(['clip', 'hide'].map((id) => chrome.contextMenus.update(id, {}))).then(() => 'ok', (e) => e.message)`,
   );
-  check(menu === 'ok', `menu item created (${menu})`);
+  check(menu === 'ok', `menu items created (${menu})`);
   // A real right-button press on a headline reaches the background without errors.
   const clipTarget = await page2.eval(`(() => {
     const a = document.querySelector('main article[data-story] .headline a');
@@ -339,9 +339,9 @@ try {
     windowsVirtualKeyCode: 27,
   });
   // Choosing the item: the background hands the link to the tab, as onClicked does.
-  const sendToTabs = (url) =>
+  const sendToTabs = (url, item = 'clip') =>
     sw.eval(`chrome.tabs.query({}).then((tabs) => Promise.all(tabs.map((t) =>
-      chrome.tabs.sendMessage(t.id, { type: 'clip-link', url: ${JSON.stringify(url)} }).catch(() => null))))`);
+      chrome.tabs.sendMessage(t.id, { type: 'story-menu-choice', item: ${JSON.stringify(item)}, url: ${JSON.stringify(url)} }).catch(() => null))))`);
   await sendToTabs(clipTarget.href);
   await sleep(300);
   check(
@@ -354,6 +354,44 @@ try {
     !(await stored()).includes(clipTarget.id),
     'choosing it again ("Remove from Clippings") removes it',
   );
+
+  // Hide: the first story of the first band goes, and its spot is filled in place.
+  const bandState = () =>
+    page2.eval(`[...document.querySelectorAll('.band')].map((b) =>
+      [...b.querySelectorAll('.band-cell article')].map((a) => ({ id: a.dataset.story, href: a.querySelector('.headline a').href })))`);
+  const bandsBefore = await bandState();
+  const victim = bandsBefore[0][0];
+  await sendToTabs(victim.href, 'hide');
+  let bandsAfter = bandsBefore;
+  for (let i = 0; i < 20 && bandsAfter[0][0].id === victim.id; i++) {
+    await sleep(150);
+    bandsAfter = await bandState();
+  }
+  const hiddenIds = ((await page2.eval(`chrome.storage.local.get('hidden')`)).hidden ?? []).map(
+    (h) => h.id,
+  );
+  const onPage = await page2.eval(`!!document.querySelector('article[data-story="${victim.id}"]')`);
+  check(
+    !onPage &&
+      hiddenIds.includes(victim.id) &&
+      bandsAfter[0].length === bandsBefore[0].length &&
+      bandsAfter[0].slice(1).every((s, i) => s.id === bandsBefore[0][i + 1].id),
+    `hid ${victim.id}: gone, stored, its spot filled by ${bandsAfter[0][0]?.id} (others unmoved)`,
+  );
+  const page4 = await browser.newPage();
+  await page4.navigate(newtab);
+  await sleep(600);
+  const inNewTab = await page4.eval(
+    `!!document.querySelector('article[data-story="${victim.id}"]')`,
+  );
+  const sameFill = await page4.eval(
+    `document.querySelector('.band .band-cell article')?.dataset.story`,
+  );
+  check(
+    !inNewTab && sameFill === bandsAfter[0][0].id,
+    'a new tab opens on the same page, without the hidden story',
+  );
+  page4.close();
 
   step('keyboard: o opens the current story');
   await page2.send('Page.bringToFront');

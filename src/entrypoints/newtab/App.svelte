@@ -3,6 +3,8 @@
   import { browser } from 'wxt/browser';
   import { applyAppearance } from '@/lib/appearance';
   import { CLIPPINGS_KEY, asClippings, clipFromItem, toggleClipping } from '@/lib/clippings';
+  import { findReplacement, replaceInEdition, slotOf } from '@/lib/edition/replace';
+  import { HIDDEN_KEY, asHidden, hiddenKeys, hideItem } from '@/lib/hidden';
   import type { DailyTabDB } from '@/lib/db';
   import { normalizeSettings } from '@/lib/defaults';
   import {
@@ -123,7 +125,7 @@
   }
 
   function onMessage(msg: Broadcast | TabMessage) {
-    if (msg.type === 'clip-link') clipLink(msg.url);
+    if (msg.type === 'story-menu-choice') onMenuChoice(msg.item, msg.url);
     if (msg.type === 'edition-updated') void onEdition(msg.editionId);
     if (msg.type === 'refresh-state') {
       refreshing = msg.running;
@@ -153,6 +155,10 @@
     // Saved in another tab.
     if (area === 'local' && changes[CLIPPINGS_KEY]) {
       snap = { ...snap, clippings: asClippings(changes[CLIPPINGS_KEY].newValue) };
+    }
+    // Hidden here or in another tab, or shown again from Settings.
+    if (area === 'local' && changes[HIDDEN_KEY]) {
+      snap = { ...snap, hidden: asHidden(changes[HIDDEN_KEY].newValue, Date.now()) };
     }
   }
 
@@ -195,25 +201,79 @@
     void browser.storage.local.set({ [CLIPPINGS_KEY]: clippings });
   }
 
-  // Right-click → "Save to Clippings" (the browser's own menu; the background adds the item).
-  // As the right button goes down, tell it whether the story under the pointer is saved, so the
-  // item reads "Save" or "Remove", and hides off a story.
+  // Right-click → "Save to Clippings" / "Hide this story" (the browser's own menu; the
+  // background adds the items). As the right button goes down, tell it what's under the
+  // pointer, so "Save" reads "Remove" for a saved story and both hide off a story.
   const storyLink = (target: EventTarget | null) =>
     target instanceof Element ? target.closest('article[data-story] a') : null;
 
   function onMenuOpening(e: MouseEvent) {
     if (!snap || (e.type === 'pointerdown' && e.button !== 2)) return;
-    const id = storyLink(e.target)?.closest<HTMLElement>('article')?.dataset.story;
+    const link = storyLink(e.target);
+    const id = link?.closest<HTMLElement>('article')?.dataset.story;
     const saved = id ? snap.clippings.some((c) => c.id === id) : null;
-    browser.runtime.sendMessage({ type: 'clip-menu', saved }).catch(() => undefined);
+    // Clippings are hidden by removing them; only stories on the page can be hidden.
+    const hideable = !!id && !link?.closest('#clippings');
+    browser.runtime.sendMessage({ type: 'story-menu', saved, hideable }).catch(() => undefined);
   }
 
-  function clipLink(url: string) {
-    const link = [...document.querySelectorAll<HTMLAnchorElement>('article[data-story] a')].find(
-      (a) => a.href === url,
-    );
+  function onMenuChoice(item: 'clip' | 'hide', url: string) {
+    const link = [
+      ...document.querySelectorAll<HTMLAnchorElement>('main article[data-story] a, #clippings a'),
+    ].find((a) => a.href === url);
     const id = link?.closest<HTMLElement>('article')?.dataset.story;
-    if (id) toggleSave(id);
+    if (!id) return;
+    if (item === 'clip') toggleSave(id);
+    else void hideStory(id);
+  }
+
+  /**
+   * Take a story off the page and fill its spot with one the reader hasn't seen (nothing else
+   * moves), or close the gap if there's none. It stays hidden from later editions too.
+   */
+  async function hideStory(id: string) {
+    if (!snap?.edition) return;
+    const item = snap.items.get(id);
+    if (!item) return;
+    const now = Date.now();
+    const hidden = hideItem(snap.hidden, item, now);
+    snap = { ...snap, hidden };
+    void browser.storage.local.set({ [HIDDEN_KEY]: hidden });
+
+    // In an expanded "More in …" list: just drop it.
+    for (const [category, ids] of more) {
+      if (ids.includes(id))
+        more = withEntry(
+          more,
+          category,
+          ids.filter((x) => x !== id),
+        );
+    }
+    const slot = snap.edition && slotOf(snap.edition, id);
+    if (!slot) return;
+    const db = await dbReady;
+    const recent = await db.items
+      .where('publishedAt')
+      .aboveOrEqual(now - 3 * 24 * 60 * 60 * 1000)
+      .toArray();
+    // A new edition shown meanwhile has its own layout; the story may not be on it.
+    if (!snap?.edition || slotOf(snap.edition, id)?.kind !== slot.kind) return;
+    const exclude = shownKeys(snap.items);
+    for (const key of hiddenKeys(hidden)) exclude.add(key);
+    const replacement = findReplacement(recent, slot, {
+      categoryOf: new Map(snap.feeds.map((f) => [f.id, f.category])),
+      category: snap.feeds.find((f) => f.id === item.feedId)?.category ?? '',
+      exclude,
+      muted: muteMatcher(snap.settings.mutedWords),
+    });
+    const edition = replaceInEdition(snap.edition, id, replacement?.id ?? null);
+    snap = {
+      ...snap,
+      edition,
+      items: replacement ? withItems(snap.items, [replacement]) : snap.items,
+    };
+    // The next tab opens on the same page, without the hidden story.
+    await db.editions.put(edition);
   }
 
   async function toggleMore(category: string) {

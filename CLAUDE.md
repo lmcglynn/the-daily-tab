@@ -12,7 +12,8 @@ the same build. Firefox is out of scope.
 - Dexie (IndexedDB): items, editions, feed fetch state.
 - `chrome.storage.sync`: settings (`settings` key) and the feed list (one key per feed, `feed:<id>`).
 - `chrome.storage.local`: `lastVisitAt` (changes on every new tab), `clippings` (saved stories,
-  self-contained copies so they outlive pruned items; per device), `weather`, `markets`, `scores`.
+  self-contained copies so they outlive pruned items; per device), `hidden` (stories hidden from
+  the page, kept 30 days), `weather`, `markets`, `scores`.
 - `chrome.alarms` for scheduled refresh (default 15 min).
 - Vitest + fake-indexeddb for tests. ESLint (flat config) + Prettier.
 - Fonts from Fontsource, Latin-subset woff2 only, declared by hand in `src/styles/fonts.css`.
@@ -92,9 +93,11 @@ Node is installed machine-wide (`C:\Program Files\nodejs`). In the Bash tool, pr
   the latest Edition from IndexedDB and listens for `edition-updated` messages.
 - Never render feed HTML. Summaries are reduced to plain text (≤ ~300 chars) by `lib/feed/text.ts`.
   Only `http:`/`https:` links and image URLs survive normalization (`safeUrl`).
-- Permissions: `storage`, `alarms`, `contextMenus` (the "Save to Clippings" right-click item, on
-  the new tab only; the page tells the background, as the right button goes down, whether the
-  story under the pointer is saved, and the background hands a chosen link back to the tab).
+- Permissions: `storage`, `alarms`, `contextMenus` ("Save to Clippings" and "Hide this story" on
+  a story's right-click menu, new tab only; the page tells the background, as the right button
+  goes down, what's under the pointer, and the background hands a chosen link back to the tab).
+  Hiding fills the spot in place (`lib/edition/replace.ts`) and writes the patched edition back;
+  composing leaves hidden stories out.
 - Host access is requested per feed origin through `optional_host_permissions` when a feed is added.
   Do not add `<all_urls>` to `host_permissions`.
 - Pure functions take `now` as a parameter instead of calling `Date.now()` so tests are deterministic.

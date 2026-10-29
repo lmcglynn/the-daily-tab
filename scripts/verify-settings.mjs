@@ -226,6 +226,21 @@ try {
   await sleep(400);
   check((await sync()).settings.mutedWords.length === 0, 'unmuted');
 
+  step('hidden stories: Settings counts them and shows them again');
+  await page.eval(
+    `chrome.storage.local.set({ hidden: [{ id: 'x1', at: Date.now() }, { id: 'x2', at: Date.now() }] })`,
+  );
+  await sleep(400);
+  const hiddenLine = await page.eval(
+    `document.querySelector('.hidden-stories')?.textContent.replace(/\\s+/g, ' ').trim() ?? ''`,
+  );
+  check(/hidden 2 stories/.test(hiddenLine), `Settings says: "${hiddenLine}"`);
+  await clickText('Show them again');
+  await sleep(400);
+  const left = (await page.eval(`chrome.storage.local.get('hidden')`)).hidden ?? [];
+  const lineGone = await page.eval(`!document.querySelector('.hidden-stories')`);
+  check(left.length === 0 && lineGone, '"Show them again" clears the list');
+
   step('add a feed (origin already granted in the e2e build)');
   await setValue('form.add input', 'https://www.theguardian.com/uk/technology/rss', 'input');
   await page.eval(`document.querySelector('form.add select').value = 'Tech'`);

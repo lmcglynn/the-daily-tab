@@ -59,6 +59,13 @@ export interface Clipping {
   savedAt: number;
 }
 
+/** A story the reader hid from the page (lib/hidden.ts). */
+export interface HiddenStory {
+  id: string;
+  storyId?: string;
+  at: number;
+}
+
 export interface EditionSection {
   category: string;
   itemIds: string[];

@@ -9,8 +9,11 @@ export type Request =
   | { type: 'geocode'; query: string }
   | { type: 'quote'; symbol: string }
   | { type: 'teams'; league: string }
-  /** The story under the pointer is (or isn't) saved; null: not a story. Sets the menu item. */
-  | { type: 'clip-menu'; saved: boolean | null }
+  /**
+   * Sets the right-click items for what's under the pointer: saved or not (null: not a story),
+   * and whether it can be hidden (a story on the page, not in Clippings).
+   */
+  | { type: 'story-menu'; saved: boolean | null; hideable: boolean }
   | { type: 'compose' };
 
 export type Response<R extends Request> = R extends { type: 'refresh' }
@@ -28,7 +31,7 @@ export type Response<R extends Request> = R extends { type: 'refresh' }
             : never;
 
 /** From the background to the tab whose right-click menu item was chosen. */
-export type TabMessage = { type: 'clip-link'; url: string };
+export type TabMessage = { type: 'story-menu-choice'; item: 'clip' | 'hide'; url: string };
 
 /** Broadcasts from the background to open pages. */
 export type Broadcast =
