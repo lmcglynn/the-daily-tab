@@ -9,6 +9,7 @@ import {
   parseGame,
   parseTeams,
   scheduleUrl,
+  summaryUrl,
   teamUrl,
 } from '@/lib/extras/scores';
 import type { ScoreReport, Settings, SportsTeam } from '@/lib/types';
@@ -197,6 +198,54 @@ describe('ESPN parsing', () => {
       score: '0–1',
       opponent: 'vs. Devils',
     });
+  });
+
+  it('takes a live game’s score from its summary when the schedule leaves it empty (NBA)', async () => {
+    // As ESPN answered for the Warriors mid-game: state "in", no scores in the schedule.
+    const noScores = event(
+      'g-live',
+      local(27, 19),
+      'in',
+      '28.8 - 3rd',
+      competitor('13', 'Lakers', 'home'),
+      competitor('17', 'Devils', 'away'),
+    );
+    const summary = {
+      header: {
+        competitions: [
+          {
+            status: { type: { state: 'in', shortDetail: '28.8 - 3rd' } },
+            competitors: [
+              { homeAway: 'home', team: { id: '13' }, score: '91' },
+              { homeAway: 'away', team: { id: '17' }, score: '79' },
+            ],
+          },
+        ],
+      },
+    };
+    const calls: string[] = [];
+    const fetchImpl = (async (url: RequestInfo | URL) => {
+      const u = String(url);
+      calls.push(u);
+      if (u === teamUrl(lakers)) {
+        return new Response(JSON.stringify({ team: { nextEvent: [tomorrowAtClippers] } }));
+      }
+      if (u === summaryUrl(lakers, 'g-live')) return new Response(JSON.stringify(summary));
+      return new Response(JSON.stringify({ events: [lostLastNight, noScores] }));
+    }) as typeof fetch;
+    const r = await fetchScores(fetchImpl, lakers, local(27, 20));
+    expect(r.current).toMatchObject({
+      state: 'in',
+      home: { name: 'Lakers', score: 91 },
+      away: { name: 'Devils', score: 79 },
+    });
+    expect(calls).toContain(summaryUrl(lakers, 'g-live'));
+    expect(scoreView(lakers, r, local(27, 20))).toMatchObject({ live: true, score: '91–79' });
+    // A summary that has ended the game makes it the latest result.
+    summary.header.competitions[0]!.status.type = { state: 'post', shortDetail: 'Final' };
+    const done = await fetchScores(fetchImpl, lakers, local(27, 22));
+    expect(done.current).toBeNull();
+    expect(done.last).toMatchObject({ id: 'g-live', detail: 'Final', home: { score: 91 } });
   });
 
   it('knows when a game is on or about to start', () => {

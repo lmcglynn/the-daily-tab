@@ -1,7 +1,8 @@
 // Scores from ESPN's site API (unofficial, no key). Per followed team, from its schedule: the last
 // result and any game in progress. The next game comes from the team endpoint's `nextEvent`,
 // which works for every league (soccer schedules list upcoming fixtures only with ?fixture=true)
-// but skips a game in progress, pointing at the one after it.
+// but skips a game in progress, pointing at the one after it. A game in progress takes its score
+// and status from the game's summary: the NBA schedule leaves live scores empty.
 import type { Game, GameSide, ScoreReport, SportsTeam } from '../types';
 
 export const SPORTS_ORIGINS = ['https://site.api.espn.com/*'];
@@ -23,6 +24,8 @@ export const teamKey = (t: Pick<SportsTeam, 'league' | 'id'>) => `${t.league}:${
 export const teamsUrl = (league: string) => `${BASE}/${league}/teams?limit=1000`;
 export const teamUrl = (t: SportsTeam) => `${BASE}/${t.league}/teams/${t.id}`;
 export const scheduleUrl = (t: SportsTeam) => `${BASE}/${t.league}/teams/${t.id}/schedule`;
+export const summaryUrl = (t: SportsTeam, eventId: string) =>
+  `${BASE}/${t.league}/summary?event=${encodeURIComponent(eventId)}`;
 
 type Json = Record<string, unknown>;
 const obj = (v: unknown): Json => (v && typeof v === 'object' ? (v as Json) : {});
@@ -104,6 +107,31 @@ export function liveGame(schedule: unknown): Game | null {
   return games.sort((a, b) => b.date - a.date)[0] ?? null;
 }
 
+/** A game's current score and status, from its summary; the game as it was if that's missing. */
+export function withSummary(game: Game, summary: unknown): Game {
+  const comp = obj(arr(obj(obj(summary).header).competitions)[0]);
+  const type = obj(obj(comp.status).type);
+  const state = str(type.state);
+  if (!['pre', 'in', 'post'].includes(state)) return game;
+  const sides = new Map(arr(comp.competitors).map((c) => [str(obj(obj(c).team).id), obj(c)]));
+  const update = (s: GameSide): GameSide => {
+    const c = sides.get(s.id);
+    if (!c) return s;
+    const next: GameSide = { ...s };
+    const n = score(c.score);
+    if (n !== undefined) next.score = n;
+    if (c.winner === true) next.winner = true;
+    return next;
+  };
+  return {
+    ...game,
+    state: state as Game['state'],
+    detail: str(type.shortDetail) || str(type.detail) || game.detail,
+    home: update(game.home),
+    away: update(game.away),
+  };
+}
+
 /** The team's next game, from the team endpoint. */
 export function currentGame(team: unknown): Game | null {
   return parseGame(arr(obj(obj(team).team).nextEvent)[0]);
@@ -129,7 +157,15 @@ export async function fetchScores(
     getJson(fetchImpl, teamUrl(team)),
     getJson(fetchImpl, scheduleUrl(team)),
   ]);
-  let current = liveGame(schedule) ?? currentGame(teamJson);
+  let live = liveGame(schedule);
+  if (live?.id) {
+    try {
+      live = withSummary(live, await getJson(fetchImpl, summaryUrl(team, live.id)));
+    } catch (e) {
+      console.warn(`[daily-tab] live score unavailable for ${team.name}`, e);
+    }
+  }
+  let current = live ?? currentGame(teamJson);
   let last = lastResult(schedule, now);
   // Just finished but still the "next event": it's the latest result.
   if (current?.state === 'post') {
