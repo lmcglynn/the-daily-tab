@@ -1,7 +1,14 @@
 <script lang="ts">
   import type { ScoreView } from './model';
 
-  let { scores }: { scores: ScoreView[] } = $props();
+  let {
+    scores,
+    joined = false,
+  }: {
+    scores: ScoreView[];
+    /** Directly under the markets box, sharing its bottom rule as the line between them. */
+    joined?: boolean;
+  } = $props();
 
   // Which team the reader last looked at (a per-browser convenience; safe to lose).
   const KEY = 'daily-tab:scores';
@@ -58,6 +65,7 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <section
   class="scores"
+  class:joined
   aria-roledescription={many ? 'carousel' : undefined}
   aria-label="Scores"
   {onkeydown}
@@ -101,6 +109,9 @@
     border-bottom: 1px solid var(--rule-ink);
     font-family: var(--font-label);
     color: var(--ink);
+  }
+  .scores.joined {
+    border-top: 0;
   }
   .head {
     display: flex;

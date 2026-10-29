@@ -112,7 +112,8 @@
       {#snippet leadExtras()}
         {#if view.markets.length}<Ticker markets={view.markets} />{/if}
         {#if view.scores.length}
-          <div class:after-box={view.markets.length > 0}><Scores scores={view.scores} /></div>
+          <!-- Under the markets box it shares that box's bottom rule: one block, two parts. -->
+          <Scores scores={view.scores} joined={view.markets.length > 0} />
         {/if}
         {#if view.leadColumn.length}
           <section
