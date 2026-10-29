@@ -194,10 +194,13 @@ describe('ESPN parsing', () => {
     const r = await fetchScores(fetchImpl, lakers, local(27, 20));
     expect(r.current).toMatchObject({ id: 'g-live', state: 'in', detail: 'End of 1st' });
     expect(r.last!.id).toBe('g1');
+    // The game after the live one shows under the score.
+    expect(r.next!.id).toBe('g2');
     expect(scoreView(lakers, r, local(27, 20))).toMatchObject({
       live: true,
       score: '0–1',
       opponent: 'vs. Devils',
+      next: 'Next: Tomorrow at Clippers, 7:30 p.m.',
     });
   });
 

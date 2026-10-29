@@ -172,14 +172,20 @@ export async function fetchScores(
       console.warn(`[daily-tab] live score unavailable for ${team.name}`, e);
     }
   }
-  let current = live ?? currentGame(teamJson);
+  const upcoming = currentGame(teamJson);
+  let current = live ?? upcoming;
   let last = lastResult(schedule, now);
   // Just finished but still the "next event": it's the latest result.
   if (current?.state === 'post') {
     if (!last || current.date >= last.date) last = current;
     current = null;
   }
-  return { at: now, key: teamKey(team), last, current };
+  const report: ScoreReport = { at: now, key: teamKey(team), last, current };
+  // Under a live score, the game after it.
+  if (current?.state === 'in' && upcoming?.state === 'pre' && upcoming.id !== current.id) {
+    report.next = upcoming;
+  }
+  return report;
 }
 
 /** A game is on, or starts within 15 minutes: worth checking every couple of minutes. */

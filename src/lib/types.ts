@@ -170,6 +170,8 @@ export interface ScoreReport {
   last: Game | null;
   /** The next game, or the one in progress. */
   current: Game | null;
+  /** While a game is in progress, the one after it. */
+  next?: Game | null;
 }
 
 export type Theme = 'system' | 'day' | 'night';

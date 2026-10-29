@@ -251,7 +251,12 @@ function sides(g: Game, teamId: string) {
 export function scoreView(team: SportsTeam, report: ScoreReport, now: number): ScoreView {
   const live = report.current?.state === 'in' ? report.current : null;
   const shown = live ?? report.last;
-  const upcoming = report.current?.state === 'pre' ? report.current : null;
+  const upcoming =
+    report.current?.state === 'pre'
+      ? report.current
+      : report.next?.state === 'pre'
+        ? report.next
+        : null;
   const soccer = team.league.startsWith('soccer/');
 
   let score = '';
