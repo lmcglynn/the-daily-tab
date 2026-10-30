@@ -1,6 +1,6 @@
 // Minimal headless-Edge driver over the Chrome DevTools Protocol (Node's built-in WebSocket).
 // Used by smoke checks and screenshots; no extra dependencies.
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -10,6 +10,15 @@ export const EDGE_PATH =
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** True when a browser answers on this debugging port. */
+async function portInUse(port) {
+  try {
+    return (await fetch(`http://127.0.0.1:${port}/json/version`)).ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Launch Edge headless, optionally with an unpacked extension. */
 export async function launchEdge({
   extensionDir,
@@ -18,6 +27,14 @@ export async function launchEdge({
   headless = process.env.HEADED !== '1',
 } = {}) {
   if (!existsSync(EDGE_PATH)) throw new Error(`Edge not found at ${EDGE_PATH}`);
+  // A browser left over from an earlier run would answer in place of the new one (its old
+  // profile and data included): refuse rather than test the wrong browser.
+  if (await portInUse(port)) {
+    throw new Error(
+      `Port ${port} is already in use by another browser, probably a test Edge left running. ` +
+        'Close it (or end msedge.exe processes whose command line has "daily-tab-edge-") and retry.',
+    );
+  }
   const profile = mkdtempSync(join(tmpdir(), 'daily-tab-edge-'));
   const args = [
     `--remote-debugging-port=${port}`,
@@ -60,8 +77,27 @@ export async function launchEdge({
       return connect(target.webSocketDebuggerUrl);
     },
     async close() {
-      proc.kill();
-      await sleep(500);
+      // Ask the browser to quit, then end its whole process tree: killing only the process we
+      // started leaves Edge's own browser process running on Windows.
+      try {
+        const { webSocketDebuggerUrl } = await (await fetch(`${base}/json/version`)).json();
+        const ws = new WebSocket(webSocketDebuggerUrl);
+        await new Promise((done) => {
+          ws.onopen = () => ws.send(JSON.stringify({ id: 1, method: 'Browser.close' }));
+          ws.onclose = done;
+          ws.onerror = done;
+          setTimeout(done, 2000);
+        });
+      } catch {
+        /* already gone */
+      }
+      if (process.platform === 'win32') {
+        spawnSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' });
+      } else {
+        proc.kill('SIGKILL');
+      }
+      for (let i = 0; i < 30 && (await portInUse(port)); i++) await sleep(100);
+      await sleep(300);
       try {
         rmSync(profile, { recursive: true, force: true });
       } catch {
