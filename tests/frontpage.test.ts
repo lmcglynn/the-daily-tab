@@ -209,16 +209,6 @@ describe('buildFrontPage', () => {
     expect(v.sections.map((s) => s.name)).toEqual(['World', 'Tech', 'Science']);
   });
 
-  it('counts new stories only among the In Brief stories with room on the page', () => {
-    // Every story new since the last visit, so In Brief's share of the count is visible.
-    const all = buildFrontPage({ ...base, lastVisitAt: 0 });
-    expect(all.brief.length).toBeGreaterThan(2);
-    for (const shown of [0, 2]) {
-      const cut = buildFrontPage({ ...base, lastVisitAt: 0, briefShown: shown });
-      expect(cut.newCount).toBe(all.newCount - (all.brief.length - shown));
-    }
-  });
-
   it('marks read and new stories', () => {
     const v = buildFrontPage(base);
     const all = [

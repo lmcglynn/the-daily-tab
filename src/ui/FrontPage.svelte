@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { BRIEF_SHOWN } from '@/lib/edition/compose';
   import FirstRun from './FirstRun.svelte';
   import Masthead from './Masthead.svelte';
   import type { FrontPageView, SectionChoice } from './model';
@@ -22,7 +21,6 @@
     onrefresh,
     onsearch,
     onspoilers,
-    onbriefshown,
     settingsUrl = null,
   }: {
     view: FrontPageView;
@@ -48,49 +46,9 @@
     onsearch?: () => void;
     /** Toggle spoiler mode. */
     onspoilers?: () => void;
-    /** How many In Brief stories fit (so counts of new stories match what's shown). */
-    onbriefshown?: (count: number) => void;
   } = $props();
 
   const widths = [96, 88, 92, 70, 84, 40];
-
-  // In Brief runs down beside the section bands on a wide page: it shows as many stories as fit
-  // above the bands' foot (never half of one), and follows them as they grow or shrink ("More
-  // in …", a resize, photos arriving). Where it sits under the bands it shows BRIEF_SHOWN.
-  let bandsEl = $state<HTMLElement | null>(null);
-  let briefList = $state<HTMLOListElement | null>(null);
-  let lastShown = -1;
-
-  function fitBrief() {
-    if (!briefList) return;
-    const items = [...briefList.children] as HTMLElement[];
-    for (const li of items) li.hidden = false;
-    let shown = Math.min(items.length, BRIEF_SHOWN);
-    if (bandsEl && matchMedia('(min-width: 1280px)').matches) {
-      const foot = bandsEl.getBoundingClientRect().bottom;
-      shown = items.findIndex((li) => li.getBoundingClientRect().bottom > foot + 1);
-      if (shown === -1) shown = items.length;
-    }
-    items.forEach((li, i) => (li.hidden = i >= shown));
-    if (shown !== lastShown) {
-      lastShown = shown;
-      onbriefshown?.(shown);
-    }
-  }
-
-  $effect(() => {
-    if (!bandsEl || !briefList) return;
-    void view.brief; // refit when the stories change
-    fitBrief();
-    const observer = new ResizeObserver(() => fitBrief());
-    observer.observe(bandsEl);
-    const wide = matchMedia('(min-width: 1280px)');
-    wide.addEventListener('change', fitBrief);
-    return () => {
-      observer.disconnect();
-      wide.removeEventListener('change', fitBrief);
-    };
-  });
 </script>
 
 <a class="skip" href="#front">Skip to the stories</a>
@@ -199,7 +157,7 @@
 
       <div class="fold"></div>
 
-      <div class="bands" bind:this={bandsEl}>
+      <div class="bands">
         {#each view.bands as band (band.anchor)}
           <section class="band" id={band.anchor} aria-labelledby="{band.anchor}-name">
             <h2 class="band-name" id="{band.anchor}-name">{band.category}</h2>
@@ -239,7 +197,7 @@
       {#if view.brief.length}
         <aside class="brief ruled" id="in-brief" aria-labelledby="in-brief-name">
           <h2 class="band-name" id="in-brief-name">In Brief</h2>
-          <ol bind:this={briefList}>
+          <ol>
             {#each view.brief as s (s.id)}
               <li><Story story={s} variant="brief" {onopen} {onsave} /></li>
             {/each}
@@ -439,8 +397,6 @@
   .bands {
     grid-column: 1 / span 5;
     min-width: 0;
-    /* Its own height, not the row's: In Brief is measured against the last band's foot. */
-    align-self: start;
   }
   .band {
     padding-top: 24px;

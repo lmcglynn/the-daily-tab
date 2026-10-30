@@ -7,10 +7,7 @@ export const SECONDARY_COUNT = 3;
 export const BAND_SIZE = 4;
 /** Headlines under the lead story, in place of the old "story elsewhere" list. */
 export const LEAD_COLUMN_COUNT = 4;
-/** Enough to run beside the section bands on a wide page; the page shows as many as fit. */
-export const BRIEF_COUNT = 60;
-/** Where In Brief sits under the bands (narrower windows), it shows this many. */
-export const BRIEF_SHOWN = 12;
+export const BRIEF_COUNT = 12;
 /** Front page draws from the last day and a half; quiet feeds fall back to the newest items. */
 const POOL_WINDOW_MS = 36 * 60 * 60 * 1000;
 const POOL_MIN = 24;

@@ -181,8 +181,6 @@ export interface FrontPageInput {
   online: boolean;
   /** Extra items per section, shown when the reader follows "More in …". */
   more?: Map<string, string[]>;
-  /** How many In Brief stories the page has room for; the rest aren't counted as shown. */
-  briefShown?: number;
   weather?: WeatherReport | null;
   markets?: Record<string, MarketReport>;
   clippings?: Clipping[];
@@ -527,7 +525,7 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
     ...secondary,
     ...leadColumn,
     ...bands.flatMap((b) => b.stories),
-    ...brief.slice(0, input.briefShown ?? brief.length),
+    ...brief,
   ].filter((s): s is StoryView => s !== null);
 
   let updatedLabel: string;

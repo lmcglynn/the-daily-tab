@@ -116,36 +116,6 @@ try {
   const focusedStory = (p) =>
     p.eval(`document.activeElement?.closest('article')?.dataset.story ?? null`);
 
-  step('In Brief runs down to the foot of the section bands (1440 wide)');
-  {
-    const wide = await browser.newPage();
-    await wide.send('Emulation.setDeviceMetricsOverride', {
-      width: 1440,
-      height: 900,
-      deviceScaleFactor: 1,
-      mobile: false,
-    });
-    await wide.navigate(newtab);
-    await sleep(1500);
-    const fit = await wide.eval(`(() => {
-      const foot = document.querySelector('.bands').getBoundingClientRect().bottom;
-      const lis = [...document.querySelectorAll('aside.brief li')];
-      const shown = lis.filter((l) => !l.hidden);
-      const last = shown.at(-1).getBoundingClientRect().bottom;
-      // The first hidden one, if shown, would pass the foot.
-      const next = lis[shown.length];
-      let nextBottom = null;
-      if (next) { next.hidden = false; nextBottom = next.getBoundingClientRect().bottom; next.hidden = true; }
-      const keys = [...document.querySelectorAll('main article[data-story] .headline a')].filter((a) => a.closest('[hidden]')).length;
-      return { total: lis.length, shown: shown.length, room: Math.round(foot - last), over: nextBottom === null ? null : Math.round(nextBottom - foot), hiddenLinks: keys };
-    })()`);
-    check(
-      fit.shown > 12 && fit.room >= 0 && (fit.over === null || fit.over > 0),
-      `${fit.shown} of ${fit.total} In Brief stories fit (${fit.room}px to the bands' foot; the next would pass it by ${fit.over}px)`,
-    );
-    wide.close();
-  }
-
   step('accessibility structure');
   const a11y = await page.eval(`(() => {
     const q = (s) => document.querySelectorAll(s);
