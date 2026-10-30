@@ -1,5 +1,5 @@
 import { composeEdition, editionItemIds, sameLayout, sectionOrder } from '@/lib/edition/compose';
-import { groupStories, headlineTokens, jaccard } from '@/lib/edition/group';
+import { groupStories, headlineTokens, jaccard, stem } from '@/lib/edition/group';
 import { assignStories, publishEdition } from '@/lib/edition/publish';
 import type { Item } from '@/lib/types';
 import { HOUR, NOW, feed, freshDB, item } from './helpers';
@@ -50,7 +50,7 @@ describe('headline grouping', () => {
     expect(g.get('y')).toBe('y');
   });
 
-  it('does not group items from the same feed or more than 12 hours apart', () => {
+  it('does not group items more than 12 hours apart', () => {
     const t = 'Leaders meet in Geneva as ceasefire talks resume';
     const g = groupStories([
       item({ id: 'a', feedId: ids.bbc!, title: t, publishedAt: NOW - 20 * HOUR }),
@@ -58,7 +58,83 @@ describe('headline grouping', () => {
       item({ id: 'c', feedId: ids.npr!, title: t, publishedAt: NOW - 6 * HOUR }),
     ]);
     expect(g.get('a')).toBe('a');
-    expect(g.get('b')).toBe('c'); // b and c are 4 h apart, different feeds
+    expect(g.get('b')).toBe('c'); // b and c are 4 h apart
+  });
+
+  it('stems the forms headlines use for the same event', () => {
+    expect(['indicts', 'indicted', 'indict'].map(stem)).toEqual(['indict', 'indict', 'indict']);
+    expect(['dies', 'died', 'die'].map(stem)).toEqual(['di', 'di', 'di']);
+    expect(['resumes', 'resumed', 'resuming'].map(stem)).toEqual(['resum', 'resum', 'resum']);
+    expect(['ramming', 'rams'].map(stem)).toEqual(['ram', 'ram']);
+  });
+
+  // Unrelated stories of a day, so that what two stories share is weighed against the rest.
+  const day = (feedId: string) =>
+    [
+      'Senate passes spending bill after late-night vote',
+      'Storm brings heavy rain and flooding to the coast',
+      'Tech giant reports record quarterly profits',
+      'Man arrested after police chase on the freeway',
+      'Officials say the man was taken to hospital',
+      'Trump signs order on steel tariffs',
+      'Trump rallies supporters in Iowa ahead of midterms',
+      'Court hears arguments in voting rights case',
+    ].map((title, n) => item({ id: `day-${feedId}-${n}`, feedId, title, summary: `${title}.` }));
+
+  it('groups the same event worded differently, weighing names and specific words', () => {
+    // As the New York Times and the Wall Street Journal put it (headlines overlap 0.13).
+    const nyt = item({
+      id: 'nyt',
+      feedId: ids.bbc!,
+      title: 'Houston Grand Jury Indicts ICE Agent on Charges of Ramming Man in Chase',
+      summary:
+        'A Houston grand jury indicted an ICE agent who rammed a fleeing man with his vehicle.',
+    });
+    const wsj = item({
+      id: 'wsj',
+      feedId: ids.npr!,
+      title: 'ICE Officer Indicted After Allegedly Striking Fleeing Man With Vehicle',
+      summary: 'The ICE officer was indicted in Houston on Thursday over the chase.',
+    });
+    expect(jaccard(headlineTokens(nyt.title), headlineTokens(wsj.title))).toBeLessThan(0.5);
+    const g = groupStories([...day(ids.guardian!), nyt, wsj]);
+    expect(g.get('wsj')).toBe(g.get('nyt'));
+    // Two different stories that share a common name stay apart.
+    expect(g.get('day-' + ids.guardian + '-5')).not.toBe(g.get('day-' + ids.guardian + '-6'));
+  });
+
+  it('groups an outlet’s near-copies, but not its series of similar stories', () => {
+    const watch = (teams: string, n: number) =>
+      item({
+        id: `watch${n}`,
+        feedId: ids.bbc!,
+        title: `How to watch ${teams}: TV channel and streaming options for October 30`,
+        summary: `How to watch ${teams} on TV and streaming tonight.`,
+      });
+    const g = groupStories(
+      [
+        ...day(ids.npr!),
+        watch('Lakers vs. Warriors', 1),
+        watch('Knicks vs. 76ers', 2),
+        watch('Pacers vs. Heat', 3),
+        item({
+          id: 'copy1',
+          feedId: ids.bbc!,
+          title: 'Patrick Stewart, Star Trek star, dies at 86',
+          summary: 'The actor died on Thursday.',
+        }),
+        item({
+          id: 'copy2',
+          feedId: ids.bbc!,
+          title: 'Patrick Stewart, ‘Star Trek’ star, dies at 86',
+          summary: 'The actor died on Thursday.',
+        }),
+      ],
+      undefined,
+      () => 'one outlet',
+    );
+    expect(new Set([g.get('watch1'), g.get('watch2'), g.get('watch3')]).size).toBe(3);
+    expect(g.get('copy2')).toBe('copy1');
   });
 
   it('ignores very short headlines', () => {

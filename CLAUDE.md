@@ -51,6 +51,10 @@ Verification against real Edge (headless, throwaway profile, driven over CDP by 
   `scripts/verify-newtab.mjs`. Find the worker with `findExtensionWorker()`, not by URL.
 - `LIVE=1 npx vitest run tests/live.test.ts --disableConsoleIntercept`: engine against the real
   starter feeds.
+- `launchEdge` refuses a debugging port that already answers (a test Edge left from an earlier
+  run would otherwise be driven instead, with its old profile and data), and `close()` ends
+  Edge's whole process tree. If a script is killed mid-run, end the leftover `msedge.exe`
+  processes whose command line contains `daily-tab-edge-`.
 - LA Times (HTTP 403), Washington Post (no response) and ESPN (HTTP 403, scores) refuse headless
   Edge but work in a normal Edge window and from Node, so expect them as failed feeds in the e2e
   checks; verify:settings skips its scores steps. `HEADED=1` (read by `launchEdge`) runs any
@@ -90,7 +94,11 @@ Node is installed machine-wide (`C:\Program Files\nodejs`). In the Bash tool, pr
   `lib/spoilers.ts`) adds the followed teams' names and their recent opponents to those words
   (`blockedWords`) and hides the scores box; switching it recomposes and the page swaps the new
   edition in directly. Outlets are feeds with the same title
-  (`outletKey`): coverage and variety count outlets, grouping still joins any two feeds.
+  (`outletKey`): coverage and variety count outlets.
+- Story grouping (`lib/edition/group.ts`, within 12 h): stems, then across outlets headlines half
+  the same or rarity-weighted overlap of headline + first sentence ≥ `OVERLAP_THRESHOLD` (0.22,
+  tuned on a day of the starter feeds); within one outlet only near-copies (same headline words,
+  overlap ≥ 0.8), since outlets run near-identical series ("How to watch X vs. Y…").
 - Never hand a Svelte `$state` value straight to `chrome.storage`: a Proxy is stored as
   `{"0": …}`. Pass plain copies (`$state.snapshot`); `normalizeSettings()` repairs on read/write.
 - The background service worker owns all network work. The new tab never fetches feeds; it reads

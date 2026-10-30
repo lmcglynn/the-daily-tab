@@ -1,19 +1,27 @@
 import type { DailyTabDB } from '../db';
 import type { Edition, Feed, Item } from '../types';
-import { composeEdition, sameLayout } from './compose';
+import { composeEdition, outletKey, sameLayout } from './compose';
 import { groupStories } from './group';
 
 const GROUP_WINDOW_MS = 48 * 60 * 60 * 1000;
 const KEEP_EDITIONS = 20;
 
-/** Assign storyIds to recent items, persisting only the ones that changed. */
-export async function assignStories(db: DailyTabDB, now: number): Promise<Item[]> {
+/**
+ * Assign storyIds to recent items, persisting only the ones that changed. `feeds` tells which
+ * feeds are one outlet (same title), which group only near-copies of each other.
+ */
+export async function assignStories(
+  db: DailyTabDB,
+  now: number,
+  feeds: Feed[] = [],
+): Promise<Item[]> {
+  const outletOf = new Map(feeds.map((f) => [f.id, outletKey(f)]));
   return db.transaction('rw', db.items, async () => {
     const recent = await db.items
       .where('publishedAt')
       .aboveOrEqual(now - GROUP_WINDOW_MS)
       .toArray();
-    const stories = groupStories(recent);
+    const stories = groupStories(recent, undefined, (id) => outletOf.get(id) ?? id);
     const size = new Map<string, number>();
     for (const root of stories.values()) size.set(root, (size.get(root) ?? 0) + 1);
     const changed: Item[] = [];
@@ -47,7 +55,7 @@ export async function publishEdition(
   mutedWords: string[] = [],
   hidden: Set<string> = new Set(),
 ): Promise<PublishResult> {
-  await assignStories(db, now);
+  await assignStories(db, now, feeds);
   const items = await db.items
     .where('publishedAt')
     .aboveOrEqual(now - 30 * 24 * 60 * 60 * 1000)
