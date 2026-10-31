@@ -71,7 +71,7 @@ export interface MarketView {
   price: string;
   /** "+14.41" */
   change: string;
-  /** "0.19%" */
+  /** "0.19%", or "−0.90%" when down (the same minus as the change). */
   percent: string;
   direction: 'up' | 'down' | 'flat';
   /** "As of 4:00 p.m. ET" or "Close, Mon Oct 26" */
@@ -461,7 +461,8 @@ export function marketView(
     showSymbol,
     price: fmt(report.price),
     change: `${diff >= 0 ? '+' : '−'}${fmt(Math.abs(diff))}`,
-    percent: `${Math.abs(pct).toFixed(2)}%`,
+    // Signed like the arrow: a fall reads "−0.90%"; a rise or no change, unsigned.
+    percent: `${direction === 'down' ? '−' : ''}${Math.abs(pct).toFixed(2)}%`,
     direction,
     asOf,
     points: report.points,

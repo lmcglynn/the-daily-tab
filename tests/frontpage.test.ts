@@ -190,6 +190,7 @@ describe('buildFrontPage', () => {
         name: 'Apple',
         showSymbol: true,
         change: '−3.10',
+        percent: '−0.90%',
         direction: 'down',
       });
       expect(stock!.label).toMatch(/^Apple 340.00 USD, down 3.10 or 0.90 percent/);
