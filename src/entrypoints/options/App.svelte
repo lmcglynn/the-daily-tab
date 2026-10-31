@@ -21,6 +21,7 @@
   import type { Broadcast } from '@/lib/messages';
   import { HIDDEN_KEY, asHidden } from '@/lib/hidden';
   import { muteMatcher } from '@/lib/mute';
+  import { ROUTINE_KINDS, routineKind } from '@/lib/routine';
   import type { OpmlFeed } from '@/lib/opml';
   import { originPatterns } from '@/lib/seed';
   import {
@@ -80,6 +81,26 @@
       })
       .catch(() => undefined);
   });
+  // How many stored stories are routine posts, by kind (shown beside the switch).
+  let routineCounts = $state.raw(new Map<string, number>());
+  $effect(() => {
+    if (!loaded) return;
+    void withTimeout(db.items.toArray(), 5000)
+      .then((items) => {
+        const counts: Record<string, number> = {};
+        for (const item of items) {
+          const kind = routineKind(item);
+          if (kind) counts[kind] = (counts[kind] ?? 0) + 1;
+        }
+        routineCounts = new Map(Object.entries(counts));
+      })
+      .catch(() => undefined);
+  });
+  const routineSummary = $derived(
+    ROUTINE_KINDS.filter((k) => routineCounts.get(k.kind))
+      .map((k) => `${routineCounts.get(k.kind)} ${k.label}`)
+      .join(', '),
+  );
   const spotContrast = $derived(contrast(settings.spotColor, DAY_PAPER));
 
   // Load and sync ---------------------------------------------------------------------------
@@ -384,6 +405,21 @@
           counts={mutedCounts}
           onchange={(words: string[]) => void patchSettings({ mutedWords: words })}
         />
+        <label class="routine">
+          <input
+            type="checkbox"
+            checked={settings.skipRoutine}
+            onchange={(e) => void patchSettings({ skipRoutine: e.currentTarget.checked })}
+          />
+          <span>
+            <strong>Skip routine posts</strong>: TV listings, score roundups, puzzles, fundraising
+            appeals and shopping roundups.
+            {#if routineSummary}<span class="routine-count"
+                >{settings.skipRoutine ? 'Skipping' : 'Would skip'}
+                {routineSummary} right now.</span
+              >{/if}
+          </span>
+        </label>
         {#if hiddenCount}
           <p class="hidden-stories">
             You’ve hidden {hiddenCount}
@@ -636,6 +672,22 @@
   .swatch.night {
     background: #16140f;
     color: var(--spot-night, #e5645e);
+  }
+  .routine {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    margin-top: 14px;
+    font-size: 14px;
+  }
+  .routine input {
+    transform: translateY(2px);
+  }
+  .routine-count {
+    display: block;
+    margin-top: 2px;
+    font-size: 12.5px;
+    color: var(--ink-2);
   }
   .hidden-stories {
     margin-top: 14px;

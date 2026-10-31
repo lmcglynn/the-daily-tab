@@ -21,6 +21,7 @@
   } from '@/lib/frontpage-data';
   import type { Broadcast, TabMessage } from '@/lib/messages';
   import { muteMatcher } from '@/lib/mute';
+  import { isRoutine } from '@/lib/routine';
   import { blockedWords } from '@/lib/spoilers';
   import { originPatterns } from '@/lib/seed';
   import { getFeeds, isFeedKey, removeFeed, saveSettings, setLastVisitAt } from '@/lib/storage';
@@ -328,9 +329,12 @@
 
   // Muted topics, plus spoilers in spoiler mode: what "More in …", search and a hidden story's
   // replacement leave out (the background leaves them out of every edition).
-  const blocked = $derived(
-    snap ? muteMatcher(blockedWords(snap.settings, snap.scores, now)) : () => false,
-  );
+  const blocked = $derived.by(() => {
+    if (!snap) return () => false;
+    const muted = muteMatcher(blockedWords(snap.settings, snap.scores, now));
+    const routine = snap.settings.skipRoutine;
+    return (item: Item) => muted(item) || (routine && isRoutine(item));
+  });
 
   /** Spoiler mode on or off: the scores box goes at once, and the page is recomposed. */
   async function toggleSpoilers() {

@@ -1,4 +1,5 @@
 import { muteMatcher } from '../mute';
+import { isRoutine } from '../routine';
 import type { Edition, Feed, Item } from '../types';
 
 /** Only coverage this recent counts toward the lead, so a big story gives way within hours. */
@@ -24,6 +25,8 @@ export interface ComposeInput {
   mutedWords?: string[];
   /** Item and story ids the reader hid. */
   hidden?: Set<string>;
+  /** Leave routine posts out (Settings → Muted topics). */
+  skipRoutine?: boolean;
 }
 
 export function sectionOrder(feeds: Feed[], preferred: string[]): string[] {
@@ -66,6 +69,7 @@ export function composeEdition(input: ComposeInput): Edition | null {
       (i) =>
         categoryOf.has(i.feedId) &&
         !muted(i) &&
+        !(input.skipRoutine && isRoutine(i)) &&
         !hidden.has(i.id) &&
         !(i.storyId && hidden.has(i.storyId)),
     )

@@ -165,10 +165,12 @@ const layoutKey = (v: unknown) => {
     mutedWords?: unknown;
     spoilerMode?: unknown;
     teams?: unknown;
+    skipRoutine?: unknown;
   };
   return JSON.stringify([
     s.sections ?? [],
     s.mutedWords ?? [],
+    s.skipRoutine !== false,
     s.spoilerMode === true,
     s.spoilerMode === true ? (s.teams ?? []) : [],
   ]);
@@ -216,6 +218,7 @@ async function doRefresh(force: boolean): Promise<RefreshReport | null> {
       Date.now(),
       await composeWords(settings),
       await hiddenNow(),
+      settings.skipRoutine,
     );
     if (isNew && edition) {
       broadcast({ type: 'edition-updated', editionId: edition.id, number: edition.number });
@@ -279,6 +282,7 @@ async function handle(msg: Request): Promise<unknown> {
         Date.now(),
         await composeWords(settings),
         await hiddenNow(),
+        settings.skipRoutine,
       );
       if (isNew && edition) {
         broadcast({ type: 'edition-updated', editionId: edition.id, number: edition.number });

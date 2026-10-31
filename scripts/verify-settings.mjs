@@ -262,6 +262,22 @@ try {
   const lineGone = await page.eval(`!document.querySelector('.hidden-stories')`);
   check(left.length === 0 && lineGone, '"Show them again" clears the list');
 
+  step('routine posts: on by default, with a count, and can be turned off');
+  const routine = await page.eval(`(() => {
+    const box = document.querySelector('.routine input');
+    return { checked: box?.checked, text: document.querySelector('.routine')?.textContent.replace(/\\s+/g, ' ').trim() };
+  })()`);
+  check(routine.checked === true, `"${routine.text}"`);
+  await page.eval(`document.querySelector('.routine input').click()`);
+  await sleep(400);
+  const routineOff = (await sync()).settings.skipRoutine;
+  await page.eval(`document.querySelector('.routine input').click()`);
+  await sleep(400);
+  check(
+    routineOff === false && (await sync()).settings.skipRoutine === true,
+    'switching it off and on again is saved',
+  );
+
   step('add a feed (origin already granted in the e2e build)');
   await setValue('form.add input', 'https://www.theguardian.com/uk/technology/rss', 'input');
   await page.eval(`document.querySelector('form.add select').value = 'Tech'`);

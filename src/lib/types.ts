@@ -246,4 +246,6 @@ export interface Settings {
   teams: SportsTeam[];
   /** Hide the scores box and stories naming these teams or their opponents (lib/spoilers.ts). */
   spoilerMode: boolean;
+  /** Leave routine posts (TV listings, score roundups, puzzles…) off the page (lib/routine.ts). */
+  skipRoutine: boolean;
 }

@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS: Settings = {
   mutedWords: [],
   teams: [],
   spoilerMode: false,
+  skipRoutine: true,
 };
 
 function asPlace(v: unknown): WeatherPlace | null {
@@ -79,6 +80,7 @@ export function normalizeSettings(raw: unknown): Settings {
     mutedWords: cleanMutedWords(asArray(r.mutedWords) ?? []),
     teams: asTeams(r.teams),
     spoilerMode: r.spoilerMode === true,
+    skipRoutine: r.skipRoutine !== false,
   };
 }
 
