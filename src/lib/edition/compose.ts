@@ -1,6 +1,7 @@
 import { muteMatcher } from '../mute';
 import { isRoutine } from '../routine';
 import type { Edition, Feed, Item } from '../types';
+import { headlineNames, ordinaryWords } from './group';
 
 /** Only coverage this recent counts toward the lead, so a big story gives way within hours. */
 export const LEAD_WINDOW_MS = 4 * 60 * 60 * 1000;
@@ -9,6 +10,8 @@ export const BAND_SIZE = 4;
 /** Headlines under the lead story, in place of the old "story elsewhere" list. */
 export const LEAD_COLUMN_COUNT = 4;
 export const BRIEF_COUNT = 12;
+/** A name in more than this share of a section's stories (and more than 4) isn't "unusual". */
+const NAME_SHARE = 0.025;
 /** Front page draws from the last day and a half; quiet feeds fall back to the newest items. */
 const POOL_WINDOW_MS = 36 * 60 * 60 * 1000;
 const POOL_MIN = 24;
@@ -122,8 +125,55 @@ export function composeEdition(input: ComposeInput): Edition | null {
   }
   const leadItemId = take(lead);
 
+  // One story per name: once a story naming an unusual person, team or place ("Brewers") is on
+  // the page, every other slot prefers stories that don't name it, falling back to them only
+  // when nothing else is left. A name is unusual when few of the stories it's drawn from mention
+  // it: "Trump" in a politics section names no one event.
+  const ordinary = ordinaryWords(pool);
+  const allNames = new Map(
+    pool.map((i) => [i.id, [...headlineNames(i)].filter((n) => !ordinary.has(n))]),
+  );
+  const unusualNames = (from: Item[]) => {
+    const count = new Map<string, number>();
+    for (const i of from)
+      for (const n of allNames.get(i.id)!) count.set(n, (count.get(n) ?? 0) + 1);
+    const limit = Math.max(4, from.length * NAME_SHARE);
+    return (i: Item) => allNames.get(i.id)!.filter((n) => count.get(n)! <= limit);
+  };
+  const globallyUnusual = unusualNames(pool);
+  const pageNames = new Set(globallyUnusual(lead));
+  const repeatsName = (i: Item, namesOf = globallyUnusual) =>
+    namesOf(i).some((n) => pageNames.has(n));
+  const place = (i: Item, namesOf = globallyUnusual) => {
+    for (const n of namesOf(i)) pageNames.add(n);
+    return take(i);
+  };
+
+  /** Up to `size` stories from `candidates` in order, naming nothing already named; then any. */
+  const pickVaried = (
+    candidates: Item[],
+    size: number,
+    namesOf: (i: Item) => string[],
+    passes: ((i: Item, picked: Item[]) => boolean)[] = [() => true],
+  ) => {
+    const picked: Item[] = [];
+    for (const varied of [true, false]) {
+      for (const accept of passes) {
+        for (const i of candidates) {
+          if (picked.length >= size) break;
+          if (!free(i) || !accept(i, picked)) continue;
+          if (varied && repeatsName(i, namesOf)) continue;
+          place(i, namesOf);
+          picked.push(i);
+        }
+      }
+    }
+    return picked;
+  };
+
   // Secondary: round-robin over the other sections, photo stories from outlets not yet on the
-  // page first, then any photo story, then (if short) the lead's section and photo-less ones.
+  // page first, then any photo story, then (if short) the lead's section and photo-less ones;
+  // each step first without repeating a name on the page.
   const secondary: string[] = [];
   const outletsUsed = new Set([outlet(lead)]);
   const others = sections.filter((s) => s !== cat(lead));
@@ -136,66 +186,50 @@ export function composeEdition(input: ComposeInput): Edition | null {
         const pick = pool.find((i) => free(i) && cat(i) === s && accept(i));
         if (pick) {
           outletsUsed.add(outlet(pick));
-          secondary.push(take(pick));
+          secondary.push(place(pick));
           progress = true;
         }
       }
     }
   };
+  const varied = (accept: (i: Item) => boolean) => (i: Item) => accept(i) && !repeatsName(i);
   const photo = (i: Item) => !!i.imageUrl;
   const freshPhoto = (i: Item) => photo(i) && !outletsUsed.has(outlet(i));
+  fill(varied(freshPhoto));
+  fill(varied(photo));
   fill(freshPhoto);
   fill(photo);
   if (secondary.length < SECONDARY_COUNT) {
     others.push(cat(lead));
+    fill(varied(freshPhoto));
+    fill(varied(photo));
+    fill(varied(() => true));
     fill(freshPhoto);
     fill(photo);
     fill(() => true);
   }
 
   // Lead column: the next newest stories from any section, one per outlet first.
-  const leadColumn: Item[] = [];
-  for (const pass of [0, 1]) {
-    for (const i of pool) {
-      if (leadColumn.length >= LEAD_COLUMN_COUNT) break;
-      if (!free(i)) continue;
-      if (
-        pass === 0 &&
-        (outletsUsed.has(outlet(i)) || leadColumn.some((l) => outlet(l) === outlet(i)))
-      ) {
-        continue;
-      }
-      take(i);
-      leadColumn.push(i);
-    }
-  }
+  const leadColumn = pickVaried(pool, LEAD_COLUMN_COUNT, globallyUnusual, [
+    (i, chosen) => !outletsUsed.has(outlet(i)) && !chosen.some((l) => outlet(l) === outlet(i)),
+    () => true,
+  ]);
 
   // Section bands
   const bands = sections
     .map((category) => {
+      const inSection = pool.filter((i) => cat(i) === category);
       // One story per outlet first so a prolific one can't fill the band, then the newest rest.
-      const picked: Item[] = [];
-      const outletsInBand = new Set<string>();
-      for (const pass of [0, 1]) {
-        for (const i of pool) {
-          if (picked.length >= BAND_SIZE) break;
-          if (cat(i) !== category || !free(i)) continue;
-          if (pass === 0 && outletsInBand.has(outlet(i))) continue;
-          outletsInBand.add(outlet(i));
-          take(i);
-          picked.push(i);
-        }
-      }
+      const picked = pickVaried(inSection, BAND_SIZE, unusualNames(inSection), [
+        (i, chosen) => !chosen.some((p) => outlet(p) === outlet(i)),
+        () => true,
+      ]);
       return { category, itemIds: picked.sort(newestFirst).map((i) => i.id) };
     })
     .filter((b) => b.itemIds.length > 0);
 
   // In Brief
-  const briefItemIds: string[] = [];
-  for (const i of pool) {
-    if (briefItemIds.length >= BRIEF_COUNT) break;
-    if (free(i)) briefItemIds.push(take(i));
-  }
+  const briefItemIds = pickVaried(pool, BRIEF_COUNT, globallyUnusual).map((i) => i.id);
 
   return {
     id: `ed-${now}`,

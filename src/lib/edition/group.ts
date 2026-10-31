@@ -56,6 +56,66 @@ export function firstSentence(summary: string): string {
   return (end === -1 ? flat : flat.slice(0, end + 1)).slice(0, 240);
 }
 
+const capitalised = (w: string) => /^\p{Lu}/u.test(w);
+const nameWords = (text: string) =>
+  text
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .split(/[^\p{L}\p{N}'’-]+/u)
+    .map((w) => w.replace(/['’]s?$/, ''))
+    .filter(Boolean);
+const nameStem = (w: string) => stem(w.toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+/**
+ * The names a headline mentions ("Brewers", "Patterson"), as stems. In a sentence-case headline
+ * those are its capitalised words after the first. Many outlets capitalise every word ("Court
+ * Rejects Erin Patterson's Appeal"), so there a headline word counts only if the summary's first
+ * sentence capitalises it mid-sentence too; without a summary, none do.
+ */
+export function headlineNames(item: Pick<Item, 'title' | 'summary'>): Set<string> {
+  const head = nameWords(item.title);
+  const later = head.slice(1).filter((w) => w.length >= 4);
+  const titleCase = later.length > 0 && later.filter(capitalised).length / later.length >= 0.6;
+  let names = head.slice(1).filter(capitalised);
+  if (titleCase) {
+    const inSummary = new Set(
+      nameWords(firstSentence(item.summary)).slice(1).filter(capitalised).map(nameStem),
+    );
+    names = head.filter((w) => capitalised(w) && inSummary.has(nameStem(w)));
+  }
+  return new Set(
+    names
+      // All-caps abbreviations (NFL, DOJ) name institutions, not one event.
+      .filter((w) => !/^[\p{Lu}\d]+$/u.test(w))
+      .map(nameStem)
+      .filter((s) => s.length >= 3 && !STOPWORDS.has(s) && !CALENDAR.has(s)),
+  );
+}
+
+/** Months and weekdays are capitalised but name no one. */
+const CALENDAR = new Set(
+  (
+    'january february march april may june july august september october november december ' +
+    'monday tuesday wednesday thursday friday saturday sunday'
+  )
+    .split(' ')
+    .map(stem),
+);
+
+/**
+ * Stems of words written in lower case somewhere in these stories' text: ordinary words, even
+ * where a headline capitalises them ("First Alert Forecast", "City Council").
+ */
+export function ordinaryWords(items: Pick<Item, 'title' | 'summary'>[]): Set<string> {
+  const out = new Set<string>();
+  for (const i of items) {
+    for (const w of nameWords(`${i.title} ${i.summary}`)) {
+      if (/^\p{Ll}/u.test(w)) out.add(nameStem(w));
+    }
+  }
+  return out;
+}
+
 /** Headline and first sentence, as stems: what two items are compared on. */
 export function storyTokens(item: Pick<Item, 'title' | 'summary'>): Set<string> {
   return new Set(words(`${item.title} ${firstSentence(item.summary)}`).map(stem));
