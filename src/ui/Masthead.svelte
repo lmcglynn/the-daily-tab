@@ -54,6 +54,9 @@
         <span class="ear-small" aria-hidden="true" title={view.weather.place}
           >{view.weather.range}</span
         >
+        {#if view.weather.headsUp}
+          <span class="ear-note" aria-hidden="true">{view.weather.headsUp}</span>
+        {/if}
       {:else if view.newSince && view.newCount > 0}
         <span class="ear-big">{view.newCount} new</span>
         <span class="ear-small">since {view.newSince}</span>
@@ -250,6 +253,10 @@
     letter-spacing: 0.08em;
     margin-left: 3px;
   }
+  .ear-note {
+    font: italic 400 13px/1.15 var(--font-text);
+    color: var(--ink);
+  }
   .ear-small {
     font-size: 10.5px;
     font-weight: 500;
@@ -417,6 +424,20 @@
     }
     .ear-big {
       font-size: 15px;
+    }
+    .ear-big,
+    .ear-small {
+      white-space: nowrap;
+    }
+    /* The heads-up takes its own line under the weather. */
+    .ear-right {
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      row-gap: 2px;
+    }
+    .ear-note {
+      flex-basis: 100%;
+      text-align: right;
     }
     .folio {
       margin-top: 10px;

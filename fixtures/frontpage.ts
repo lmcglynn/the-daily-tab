@@ -336,6 +336,7 @@ export const weather: WeatherReport = {
   isDay: true,
   high: 52.4,
   low: 40.6,
+  change: { at: at(15), code: 61 },
 };
 
 /** A morning's trading (deterministic walk so screenshots are stable). */

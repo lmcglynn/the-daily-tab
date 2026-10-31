@@ -1,4 +1,4 @@
-import { describeWeather, reportMatches } from '@/lib/extras/weather-words';
+import { describeWeather, isWet, reportMatches } from '@/lib/extras/weather-words';
 import { isRaceReport } from '@/lib/types';
 import type {
   Clipping,
@@ -57,6 +57,8 @@ export interface WeatherView {
   condition: string;
   /** "H 52 · L 41" */
   range: string;
+  /** "Rain from 3 p.m.", "Dry by noon": the next turn in the weather, if one is coming. */
+  headsUp: string | null;
   place: string;
   /** Plain sentence for assistive tech. */
   label: string;
@@ -202,13 +204,33 @@ export function weatherView(
   const deg = (t: number) => `${Math.round(t)}°`;
   const condition = describeWeather(report.code, report.isDay);
   const unit = settings.units === 'c' ? 'Celsius' : 'Fahrenheit';
+  const headsUp = weatherHeadsUp(report, now);
   return {
     temp: deg(report.temp),
     condition,
     range: `H ${deg(report.high)} · L ${deg(report.low)}`,
+    headsUp,
     place: place!.name,
-    label: `Weather in ${place!.name}: ${Math.round(report.temp)} degrees ${unit}, ${condition.toLowerCase()}; high ${Math.round(report.high)}, low ${Math.round(report.low)}.`,
+    label: `Weather in ${place!.name}: ${Math.round(report.temp)} degrees ${unit}, ${condition.toLowerCase()}; high ${Math.round(report.high)}, low ${Math.round(report.low)}.${headsUp ? ` ${headsUp}${headsUp.endsWith('.') ? '' : '.'}` : ''}`,
   };
+}
+
+/** "3 p.m.", "noon", "midnight": forecast hours are on the hour. */
+function hourWord(t: number): string {
+  const h = new Date(t).getHours();
+  if (h === 0) return 'midnight';
+  if (h === 12) return 'noon';
+  return `${h % 12} ${h < 12 ? 'a.m.' : 'p.m.'}`;
+}
+
+/** "Rain from 3 p.m.", "Snow within the hour", "Dry by noon"; null when nothing's coming. */
+export function weatherHeadsUp(report: WeatherReport, now: number): string | null {
+  const change = report.change;
+  if (!change || change.at <= now) return null;
+  const soon = change.at - now <= 60 * 60_000;
+  if (!isWet(change.code)) return soon ? 'Dry within the hour' : `Dry by ${hourWord(change.at)}`;
+  const what = describeWeather(change.code, true);
+  return soon ? `${what} within the hour` : `${what} from ${hourWord(change.at)}`;
 }
 
 /** Quotes in the reader's order; tickers with no recent quote are left out. */

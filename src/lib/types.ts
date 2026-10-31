@@ -107,6 +107,11 @@ export interface WeatherReport {
   isDay: boolean;
   high: number;
   low: number;
+  /**
+   * The next turn in the weather within 12 hours: when rain (drizzle, snow, storms) is likely
+   * to start, its WMO code; when it's falling now, when it stops (a dry code).
+   */
+  change?: { at: number; code: number };
 }
 
 /** A ticker the reader follows (Yahoo symbol, e.g. ^GSPC, AAPL, BTC-USD). */

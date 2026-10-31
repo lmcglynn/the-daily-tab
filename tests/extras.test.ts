@@ -83,6 +83,41 @@ describe('weather', () => {
     expect(parseForecast({ current: {} }, seattle, 'f', NOW)).toBeNull();
   });
 
+  it('asks for the next 12 hours and finds where the weather turns', () => {
+    expect(forecastUrl(seattle, 'f')).toContain(
+      'hourly=precipitation_probability%2Cweather_code&forecast_hours=13',
+    );
+    const hour = 3600;
+    const at = (n: number) => Math.floor(NOW / 1000 / hour) * hour + n * hour; // on the hour
+    const hourly = (codes: number[], chances: number[]) => ({
+      ...forecastJson,
+      current: { ...forecastJson.current, weather_code: 3 },
+      hourly: {
+        time: codes.map((_, n) => at(n)),
+        weather_code: codes,
+        precipitation_probability: chances,
+      },
+    });
+    const change = (json: unknown) => parseForecast(json, seattle, 'f', NOW)!.change;
+    // Dry now: the first future hour where rain is likely; drizzle at 8% doesn't count.
+    expect(change(hourly([61, 3, 53, 61, 61], [90, 5, 8, 70, 80]))).toEqual({
+      at: at(3) * 1000,
+      code: 61,
+    });
+    expect(change(hourly([3, 53, 3], [0, 30, 0]))).toBeUndefined();
+    // Nothing more than 12 hours out.
+    expect(change(hourly([...Array(13).fill(3), 61], [...Array(13).fill(0), 90]))).toBeUndefined();
+    // Raining now: the first dry hour.
+    expect(
+      change({
+        ...hourly([61, 61, 63, 2], [90, 90, 80, 10]),
+        current: forecastJson.current,
+      }),
+    ).toEqual({ at: at(3) * 1000, code: 2 });
+    // Without hourly data (an older cache, a failed field) there's simply no heads-up.
+    expect(change(forecastJson)).toBeUndefined();
+  });
+
   it('describes WMO codes in newspaper words', () => {
     expect(describeWeather(0, true)).toBe('Sunny');
     expect(describeWeather(0, false)).toBe('Clear');

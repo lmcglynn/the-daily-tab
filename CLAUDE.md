@@ -88,7 +88,9 @@ Node is installed machine-wide (`C:\Program Files\nodejs`). In the Bash tool, pr
   or teams change) and caches them in `chrome.storage.local` (`weather`, `markets`, `scores`);
   the new tab only reads that cache. While a followed team is playing, a one-off `scores` alarm
   re-checks every 2 minutes. Their host access is requested from Settings like feeds;
-  `extrasOrigins()` keeps it from being released.
+  `extrasOrigins()` keeps it from being released. The weather report carries the next 12 hours'
+  turn (`change`: rain ≥ 50% likely to start, or a dry hour while it's falling), shown as a
+  heads-up line in the ear ("Rain from 3 p.m.").
 - Muted topics (`settings.mutedWords`, `lib/mute.ts`) are applied when composing and in
   "More in …"; the background recomposes when they change. Spoiler mode (`settings.spoilerMode`,
   `lib/spoilers.ts`) adds the followed teams' names and their recent opponents to those words

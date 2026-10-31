@@ -18,6 +18,9 @@ export function describeWeather(code: number, isDay = true): string {
   return 'Unsettled';
 }
 
+/** Drizzle, rain, snow, showers or thunderstorms: anything falling (WMO 51 and up). */
+export const isWet = (code: number) => code >= 51;
+
 /** The cached report is for this place and these units (settings may have changed since). */
 export function reportMatches(
   report: WeatherReport | null | undefined,

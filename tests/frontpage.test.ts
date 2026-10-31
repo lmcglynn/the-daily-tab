@@ -1,5 +1,5 @@
 import { ago, clockParts, editionName, issueNumber, splitDeck } from '@/ui/format';
-import { buildFrontPage, type FrontPageInput } from '@/ui/model';
+import { buildFrontPage, weatherHeadsUp, type FrontPageInput } from '@/ui/model';
 import * as fx from '../fixtures/frontpage';
 
 const local = (d: number, h: number, m = 0) => new Date(2026, 9, d, h, m).getTime();
@@ -117,6 +117,7 @@ describe('buildFrontPage', () => {
     const v = buildFrontPage({ ...base, settings, weather });
     expect(v.weather).toMatchObject({ temp: '48°', condition: 'Cloudy', range: 'H 52° · L 41°' });
     expect(v.weather!.label).toMatch(/^Weather in Seattle: 48 degrees Fahrenheit, cloudy/);
+    expect(v.weather!.headsUp).toBeNull();
     // Switching units (until the next fetch) or a stale report hides it instead of lying.
     expect(
       buildFrontPage({ ...base, settings: { ...settings, units: 'c' }, weather }).weather,
@@ -125,6 +126,37 @@ describe('buildFrontPage', () => {
       buildFrontPage({ ...base, settings, weather: { ...weather, at: fx.NOW - 7 * 3600_000 } })
         .weather,
     ).toBeNull();
+  });
+
+  it('gives a heads-up when the weather is about to turn', () => {
+    const report = {
+      at: fx.NOW - 10 * 60_000,
+      lat: 0,
+      lon: 0,
+      units: 'f' as const,
+      temp: 50,
+      code: 3,
+      isDay: true,
+      high: 55,
+      low: 45,
+    };
+    const turn = (h: number, m: number, code: number) =>
+      weatherHeadsUp({ ...report, change: { at: local(27, h, m), code } }, fx.NOW);
+    // fx.NOW is 9:42 a.m. on the 27th.
+    expect(turn(15, 0, 61)).toBe('Rain from 3 p.m.');
+    expect(turn(12, 0, 71)).toBe('Snow from noon');
+    expect(turn(10, 0, 95)).toBe('Thunderstorms within the hour');
+    expect(turn(14, 0, 3)).toBe('Dry by 2 p.m.');
+    expect(turn(9, 0, 61)).toBeNull(); // already passed: the report is old
+    expect(weatherHeadsUp(report, fx.NOW)).toBeNull();
+    const settings = { ...fx.settings, weatherPlace: { name: 'X', region: '', lat: 0, lon: 0 } };
+    const v = buildFrontPage({
+      ...base,
+      settings,
+      weather: { ...report, change: { at: local(27, 15), code: 61 } },
+    });
+    expect(v.weather!.headsUp).toBe('Rain from 3 p.m.');
+    expect(v.weather!.label).toMatch(/low 45\. Rain from 3 p\.m\.$/);
   });
 
   describe('markets box', () => {

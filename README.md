@@ -2,8 +2,8 @@
 
 A browser extension that replaces your new-tab page with a news front page laid out like a printed
 broadsheet. Headlines come from RSS and Atom feeds you choose, refresh in the background every 15
-minutes, and open instantly, even offline. It also has a weather ear and a markets box, both
-optional.
+minutes, and open instantly, even offline. It also has a weather ear (with a heads-up when rain
+or snow is on the way) and a markets box, both optional.
 
 ![The Daily Tab's front page: a blackletter masthead with the time and weather in its ears, a lead story about ceasefire talks with a photo, a markets box showing the S&P 500, and headlines from other sections down the right](docs/screenshot.png)
 
