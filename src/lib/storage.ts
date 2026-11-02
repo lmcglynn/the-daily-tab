@@ -57,6 +57,7 @@ export async function getLocalState(): Promise<Record<string, unknown>> {
     'scores',
     'clippings',
     'hidden',
+    'leadPhoto',
   ]);
 }
 

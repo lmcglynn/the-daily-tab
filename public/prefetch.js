@@ -65,6 +65,7 @@
       'scores',
       'clippings',
       'hidden',
+      'leadPhoto',
     ]),
   ]).then(
     ([db, sync, local]) => ({ db, sync, local }),

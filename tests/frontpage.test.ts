@@ -93,6 +93,25 @@ describe('buildFrontPage', () => {
     expect(v.secondary.every((s) => s.coverage === undefined && !s.developing)).toBe(true);
   });
 
+  it('offers the lead’s outlets’ pictures and shows the largest one measured', () => {
+    const v = buildFrontPage(base);
+    const candidates = v.lead!.photoCandidates!;
+    expect(candidates[0]).toBe(v.lead!.imageUrl);
+    expect(v.secondary.every((s) => s.photoCandidates === undefined)).toBe(true);
+    const other = 'https://img.example/larger.jpg';
+    const items = new Map(base.items);
+    const relatedId = fx.edition.leadRelatedItemIds[0]!;
+    items.set(relatedId, { ...items.get(relatedId)!, imageUrl: other });
+    const leadPhoto = { itemId: v.lead!.id, url: other, size: 1200, tried: [other] };
+    const w = buildFrontPage({ ...base, items, leadPhoto });
+    expect(w.lead!.photoCandidates).toContain(other);
+    expect(w.lead!.imageUrl).toBe(other);
+    // Remembered for another lead: ignored.
+    expect(
+      buildFrontPage({ ...base, items, leadPhoto: { ...leadPhoto, itemId: 'x' } }).lead!.imageUrl,
+    ).toBe(v.lead!.imageUrl);
+  });
+
   it('shows weather in the ear and moves the new count to the folio', () => {
     const settings = {
       ...fx.settings,

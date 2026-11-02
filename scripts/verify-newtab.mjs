@@ -142,6 +142,39 @@ try {
   check(a11y.liveRegion, 'new-edition button sits in a polite live region');
   check(a11y.imgAlt && a11y.lang === 'en', 'decorative photos hidden from AT; lang="en"');
 
+  step('lead photo: the largest of its outlets’ pictures');
+  const leadPhoto = (p) =>
+    p.eval(`chrome.storage.local.get('leadPhoto').then(({ leadPhoto }) => ({
+      stored: leadPhoto ?? null,
+      lead: document.querySelector('.slot-lead article')?.dataset.story ?? null,
+      shown: document.querySelector('.slot-lead .lead-photo img')?.src ?? null,
+      outlets: document.querySelectorAll('.slot-lead .coverage a').length,
+    }))`);
+  let photo = await leadPhoto(page);
+  for (let t = 0; t < 40 && !photo.stored; t++) {
+    await sleep(300);
+    photo = await leadPhoto(page);
+  }
+  if (!photo.stored) {
+    check(
+      photo.outlets === 0 || photo.shown !== null,
+      `nothing to choose between (${photo.outlets} other outlets; their pictures, if any, didn’t load or are the lead’s own)`,
+    );
+  } else {
+    check(
+      photo.stored.itemId === photo.lead && photo.shown === photo.stored.url,
+      `measured ${photo.stored.tried.length} pictures; the lead shows the largest (${photo.stored.size}px on its shorter side): ${photo.stored.url.slice(0, 70)}…`,
+    );
+    const again = await browser.newPage();
+    await again.navigate(newtab);
+    await sleep(300);
+    const first = await again.eval(
+      `document.querySelector('.slot-lead .lead-photo img')?.src ?? null`,
+    );
+    check(first === photo.stored.url, `the next tab opens with it (${String(first).slice(0, 70)})`);
+    await again.close();
+  }
+
   step('keyboard: j / k');
   await press(page, 'j');
   const s1 = await focusedStory(page);
@@ -192,7 +225,7 @@ try {
   );
   check(
     readClass && typeof readAt === 'number',
-    'opening a story marks it read (view + IndexedDB)',
+    `opening a story marks it read (view: ${readClass}, IndexedDB readAt: ${typeof readAt})`,
   );
 
   step('More in …');

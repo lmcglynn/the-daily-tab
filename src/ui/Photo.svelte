@@ -14,8 +14,10 @@
     fill?: boolean;
   } = $props();
 
-  // A broken or blocked image removes the figure; the grid never shows a hole.
-  let failed = $state(false);
+  // A broken or blocked image removes the figure; the grid never shows a hole. A new picture
+  // (the lead's, once a larger one is found) gets its own chance.
+  let failedSrc = $state('');
+  const failed = $derived(failedSrc === src);
 </script>
 
 {#if !failed}
@@ -27,7 +29,7 @@
         loading={eager ? 'eager' : 'lazy'}
         decoding="async"
         referrerpolicy="no-referrer"
-        onerror={() => (failed = true)}
+        onerror={() => (failedSrc = src)}
       />
     </a>
   </figure>

@@ -5,6 +5,8 @@
   import { CLIPPINGS_KEY, asClippings, clipFromItem, toggleClipping } from '@/lib/clippings';
   import { findReplacement, replaceInEdition, slotOf } from '@/lib/edition/replace';
   import { HIDDEN_KEY, asHidden, hiddenKeys, hideItem } from '@/lib/hidden';
+  import { LEAD_PHOTO_KEY, asLeadPhoto, chooseLeadPhoto, photosToMeasure } from '@/lib/lead-photo';
+  import { measurePhotos } from './photos';
   import type { DailyTabDB } from '@/lib/db';
   import { normalizeSettings } from '@/lib/defaults';
   import {
@@ -137,6 +139,32 @@
     requestAnimationFrame(() => (fresh = true));
   }
 
+  // Lead photo ------------------------------------------------------------------------------
+
+  // Once the page is up, load the lead story's other pictures and keep the largest; the lead
+  // switches to it (already loaded, so at once), and later tabs open with it.
+  let measuring = '';
+  $effect(() => {
+    const lead = view?.lead;
+    if (!snap || !lead?.photoCandidates) return;
+    const candidates = lead.photoCandidates;
+    const todo = photosToMeasure(snap.leadPhoto, lead.id, candidates);
+    const key = `${lead.id} ${todo.join(' ')}`;
+    if (todo.length === 0 || key === measuring) return;
+    measuring = key;
+    requestIdleCallback(
+      () =>
+        void measurePhotos(todo).then((sizes) => {
+          if (!snap) return;
+          const leadPhoto = chooseLeadPhoto(snap.leadPhoto, lead.id, candidates, sizes);
+          if (!leadPhoto) return;
+          snap = { ...snap, leadPhoto };
+          void browser.storage.local.set({ [LEAD_PHOTO_KEY]: leadPhoto });
+        }),
+      { timeout: 2000 },
+    );
+  });
+
   async function reloadStates() {
     if (snap) snap = { ...snap, states: await (await dbReady).feedState.toArray() };
   }
@@ -173,6 +201,10 @@
     // Saved in another tab.
     if (area === 'local' && changes[CLIPPINGS_KEY]) {
       snap = { ...snap, clippings: asClippings(changes[CLIPPINGS_KEY].newValue) };
+    }
+    // Measured in another tab.
+    if (area === 'local' && changes[LEAD_PHOTO_KEY]) {
+      snap = { ...snap, leadPhoto: asLeadPhoto(changes[LEAD_PHOTO_KEY].newValue) };
     }
     // Hidden here or in another tab, or shown again from Settings.
     if (area === 'local' && changes[HIDDEN_KEY]) {

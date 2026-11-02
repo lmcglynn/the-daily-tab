@@ -1,6 +1,7 @@
 // Everything the new tab reads, all from local storage; no network on this path.
 import { asClippings } from './clippings';
 import { asHidden } from './hidden';
+import { LEAD_PHOTO_KEY, asLeadPhoto, type LeadPhoto } from './lead-photo';
 import type { DailyTabDB } from './db';
 import { editionItemIds } from './edition/compose';
 import { normalizeSettings } from './defaults';
@@ -36,6 +37,8 @@ export interface Snapshot {
   scores: Record<string, SportsReport>;
   /** Stories the reader hid. */
   hidden: HiddenStory[];
+  /** The largest picture of the lead, as measured by an earlier tab. */
+  leadPhoto: LeadPhoto | null;
 }
 
 /** Pull the storage.local values the front page uses, tolerating anything malformed. */
@@ -57,6 +60,7 @@ export function localExtras(local: Record<string, unknown>) {
     clippings: asClippings(local.clippings),
     scores: asScores(local.scores),
     hidden: asHidden(local.hidden, Date.now()),
+    leadPhoto: asLeadPhoto(local[LEAD_PHOTO_KEY]),
   };
 }
 

@@ -1,4 +1,5 @@
 import { describeWeather, isWet, reportMatches } from '@/lib/extras/weather-words';
+import { chosenLeadPhoto, leadPhotoCandidates, type LeadPhoto } from '@/lib/lead-photo';
 import { isRaceReport } from '@/lib/types';
 import type {
   Clipping,
@@ -48,6 +49,8 @@ export interface StoryView {
   coverage?: { id: string; source: string; link: string }[];
   /** Lead only: another outlet has joined the story in the last hour. */
   developing?: boolean;
+  /** Lead only: its outlets' pictures, to measure for the largest (lib/lead-photo.ts). */
+  photoCandidates?: string[];
 }
 
 export interface WeatherView {
@@ -187,6 +190,8 @@ export interface FrontPageInput {
   markets?: Record<string, MarketReport>;
   clippings?: Clipping[];
   scores?: Record<string, SportsReport>;
+  /** The largest picture of the lead found so far. */
+  leadPhoto?: LeadPhoto | null;
 }
 
 const WEATHER_MAX_AGE_MS = 6 * 60 * 60_000;
@@ -530,6 +535,13 @@ export function buildFrontPage(input: FrontPageInput): FrontPageView {
         .map((i) => ({ id: i.id, source: feedById.get(i.feedId)?.title ?? '', link: i.link }))
         .filter((c) => c.source);
       lead.developing = isDeveloping([items.get(edition.leadItemId)!, ...related], now);
+      lead.photoCandidates = leadPhotoCandidates(
+        items.get(edition.leadItemId)!,
+        related,
+        items.values(),
+      );
+      const photo = chosenLeadPhoto(input.leadPhoto, lead.id, lead.photoCandidates);
+      if (photo) lead.imageUrl = photo;
     }
   }
 

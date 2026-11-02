@@ -13,7 +13,8 @@ the same build. Firefox is out of scope.
 - `chrome.storage.sync`: settings (`settings` key) and the feed list (one key per feed, `feed:<id>`).
 - `chrome.storage.local`: `lastVisitAt` (changes on every new tab), `clippings` (saved stories,
   self-contained copies so they outlive pruned items; per device), `hidden` (stories hidden from
-  the page, kept 30 days), `weather`, `markets`, `scores`.
+  the page, kept 30 days), `weather`, `markets`, `scores`, `leadPhoto` (the largest of the lead
+  story's pictures across its outlets, measured by the new tab, `lib/lead-photo.ts`).
 - `chrome.alarms` for scheduled refresh (default 15 min).
 - Vitest + fake-indexeddb for tests. ESLint (flat config) + Prettier.
 - Fonts from Fontsource, Latin-subset woff2 only, declared by hand in `src/styles/fonts.css`.
