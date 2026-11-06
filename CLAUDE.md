@@ -106,6 +106,10 @@ Node is installed machine-wide (`C:\Program Files\nodejs`). In the Bash tool, pr
   `{"0": …}`. Pass plain copies (`$state.snapshot`); `normalizeSettings()` repairs on read/write.
 - The background service worker owns all network work. The new tab never fetches feeds; it reads
   the latest Edition from IndexedDB and listens for `edition-updated` messages.
+- A summary a feed puts under 3+ different headlines says nothing about them (`repeatedSummaries`;
+  NBC's stations send one article's text on every item, whichever is on top). Normalizing falls
+  back to the item's `<excerpt>`, then its full text, then none; `assignStories` blanks repeats
+  among stored items before grouping, or they'd join unrelated stories.
 - Never render feed HTML. Summaries are reduced to plain text (≤ ~300 chars) by `lib/feed/text.ts`.
   Only `http:`/`https:` links and image URLs survive normalization (`safeUrl`).
 - Permissions: `storage`, `alarms`, `contextMenus` ("Save to Clippings" and "Hide this story" on

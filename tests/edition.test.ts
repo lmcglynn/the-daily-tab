@@ -357,6 +357,43 @@ describe('composeEdition', () => {
 });
 
 describe('publishEdition', () => {
+  // Seen on NBC Los Angeles: every item carried the text of one article, so its headline about
+  // one story, under another story's text, joined the two.
+  it('forgets a summary stored under different headlines, so it can’t join stories', async () => {
+    const db = freshDB();
+    const miller = 'Stephen Miller will replace Susie Wiles as White House chief of staff.';
+    const local = (id: string, title: string) =>
+      item({ id, feedId: ids.ars!, title, summary: miller, publishedAt: NOW - 3 * HOUR });
+    await db.items.bulkPut([
+      item({
+        id: 'm',
+        feedId: ids.bbc!,
+        title: 'Miller replaces Wiles at the White House',
+        summary: miller,
+        publishedAt: NOW - 2 * HOUR,
+      }),
+      item({
+        id: 'k',
+        feedId: ids.npr!,
+        title: 'Royal father arrested in Mexico on Tuesday',
+        summary: 'Police detained him at his home.',
+        publishedAt: NOW - 2 * HOUR,
+      }),
+      local('n1', 'Royal father arrested in Mexico, police confirm'),
+      local('n2', 'Downtown bridge closes until March'),
+      local('n3', 'Manhole cover explodes on Sunset Boulevard'),
+    ]);
+
+    await assignStories(db, NOW);
+
+    const stored = async (id: string) => (await db.items.get(id))!;
+    expect((await stored('n2')).summary).toBe('');
+    expect((await stored('m')).summary).toBe(miller); // another outlet's, and rightly its own
+    expect((await stored('n1')).storyId).toBe((await stored('k')).storyId);
+    expect((await stored('m')).storyId).toBeUndefined();
+    expect((await stored('n2')).storyId).toBeUndefined();
+  });
+
   it('groups, composes and stores; skips identical layouts', async () => {
     const db = freshDB();
     await db.items.bulkPut([

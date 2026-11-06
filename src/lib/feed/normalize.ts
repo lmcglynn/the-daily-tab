@@ -1,7 +1,15 @@
 import { itemId } from '../hash';
 import type { Feed, Item } from '../types';
-import type { ParsedFeed } from './parse';
-import { cleanTitle, firstImageSrc, htmlToText, safeUrl, summarize, truncate } from './text';
+import type { ParsedEntry, ParsedFeed } from './parse';
+import {
+  cleanTitle,
+  firstImageSrc,
+  htmlToText,
+  repeatedSummaries,
+  safeUrl,
+  summarize,
+  truncate,
+} from './text';
 
 export const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 /** Clock skew we tolerate before treating a date as bogus "future" news. */
@@ -49,6 +57,16 @@ export function newestEntryAt(parsed: ParsedFeed, fetchedAt: number): number | u
   return newest;
 }
 
+/** The story's first text that isn't one the feed repeats; empty if it has no other. */
+function entrySummary(e: ParsedEntry, title: string, repeated: Set<string>): string {
+  for (const html of [e.summaryHtml, e.excerptHtml, e.contentHtml]) {
+    if (!html) continue;
+    const summary = summarize(html, title);
+    if (!repeated.has(summary)) return summary;
+  }
+  return '';
+}
+
 export function normalizeEntries(
   feed: Pick<Feed, 'id' | 'url'>,
   parsed: ParsedFeed,
@@ -57,12 +75,18 @@ export function normalizeEntries(
   const base = safeUrl(parsed.siteUrl, feed.url) ?? feed.url;
   const seen = new Set<string>();
   const items: Item[] = [];
+  const repeated = repeatedSummaries(
+    parsed.entries.map((e) => {
+      const title = cleanTitle(e.title);
+      return { title, summary: entrySummary(e, title, new Set()) };
+    }),
+  );
 
   for (const e of parsed.entries) {
     const link = safeUrl(e.link, base) ?? safeUrl(e.guid);
     if (!link) continue;
 
-    const html = e.summaryHtml || e.contentHtml || '';
+    const html = e.summaryHtml || e.excerptHtml || e.contentHtml || '';
     const title = cleanTitle(e.title) || truncate(htmlToText(html), 120);
     if (!title) continue;
 
@@ -83,7 +107,7 @@ export function normalizeEntries(
       feedId: feed.id,
       title,
       link,
-      summary: summarize(html, title),
+      summary: entrySummary(e, title, repeated),
       publishedAt,
       fetchedAt,
     };

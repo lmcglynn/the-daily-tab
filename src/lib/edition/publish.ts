@@ -1,10 +1,34 @@
 import type { DailyTabDB } from '../db';
+import { repeatedSummaries } from '../feed/text';
 import type { Edition, Feed, Item } from '../types';
 import { composeEdition, outletKey, sameLayout } from './compose';
 import { groupStories } from './group';
 
 const GROUP_WINDOW_MS = 48 * 60 * 60 * 1000;
 const KEEP_EDITIONS = 20;
+
+/**
+ * Blank summaries a feed repeats across stored stories, returning the items changed. Fetching
+ * catches repeats within one copy of a feed; these came from several, or have left the feed.
+ */
+function forgetRepeatedSummaries(items: Item[]): Item[] {
+  const byFeed = new Map<string, Item[]>();
+  for (const item of items) {
+    const list = byFeed.get(item.feedId);
+    if (list) list.push(item);
+    else byFeed.set(item.feedId, [item]);
+  }
+  const changed: Item[] = [];
+  for (const list of byFeed.values()) {
+    const repeated = repeatedSummaries(list);
+    for (const item of list) {
+      if (!repeated.has(item.summary)) continue;
+      item.summary = '';
+      changed.push(item);
+    }
+  }
+  return changed;
+}
 
 /**
  * Assign storyIds to recent items, persisting only the ones that changed. `feeds` tells which
@@ -21,10 +45,10 @@ export async function assignStories(
       .where('publishedAt')
       .aboveOrEqual(now - GROUP_WINDOW_MS)
       .toArray();
+    const changed = new Set(forgetRepeatedSummaries(recent));
     const stories = groupStories(recent, undefined, (id) => outletOf.get(id) ?? id);
     const size = new Map<string, number>();
     for (const root of stories.values()) size.set(root, (size.get(root) ?? 0) + 1);
-    const changed: Item[] = [];
     for (const item of recent) {
       const root = stories.get(item.id)!;
       // Singletons carry no storyId; it marks cross-feed groups only.
@@ -32,10 +56,10 @@ export async function assignStories(
       if (next !== item.storyId) {
         if (next) item.storyId = next;
         else delete item.storyId;
-        changed.push(item);
+        changed.add(item);
       }
     }
-    if (changed.length) await db.items.bulkPut(changed);
+    if (changed.size) await db.items.bulkPut([...changed]);
     return recent;
   });
 }

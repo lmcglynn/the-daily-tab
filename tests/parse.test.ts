@@ -104,6 +104,51 @@ describe('normalizeEntries', () => {
     expect(hn!.link).toBe('https://example.dev/tinydb');
   });
 
+  describe('a summary the feed repeats under different headlines', () => {
+    const rss = (...items: string[]) =>
+      `<rss version="2.0"><channel><title>Local</title><link>https://local.example/</link>${items.join('')}</channel></rss>`;
+    const story = (
+      n: number,
+      extra: string,
+      description = 'Text of the top story, on every item.',
+    ) =>
+      `<item><title>Headline number ${n}</title><link>https://local.example/${n}</link><description><![CDATA[<p>${description}</p>]]></description>${extra}</item>`;
+    const summaries = (xml: string) =>
+      normalizeEntries(FEED, parseFeed(xml), NOW).map((i) => i.summary);
+
+    it('gives way to each story’s own excerpt', () => {
+      const xml = rss(
+        story(1, '<excerpt><![CDATA[The bridge reopens in March.]]></excerpt>'),
+        story(2, '<excerpt><![CDATA[Crews repaired the manhole.]]></excerpt>'),
+        story(3, '<excerpt><![CDATA[]]></excerpt>'),
+      );
+      expect(summaries(xml)).toEqual([
+        'The bridge reopens in March.',
+        'Crews repaired the manhole.',
+        '',
+      ]);
+    });
+
+    it('gives way to the full text when that’s the story’s own', () => {
+      const own = (t: string) => `<content:encoded><![CDATA[<p>${t}</p>]]></content:encoded>`;
+      const xml = rss(story(1, own('One.')), story(2, own('Two.')), story(3, ''));
+      expect(summaries(xml)).toEqual(['One.', 'Two.', '']);
+    });
+
+    it('stands when only two headlines share it, or one headline is posted again', () => {
+      const shared = 'Text of the top story, on every item.';
+      expect(summaries(rss(story(1, ''), story(2, '')))).toEqual([shared, shared]);
+      const again = (n: number) =>
+        `<item><title>Same headline</title><link>https://local.example/${n}</link><description>${shared}</description></item>`;
+      expect(summaries(rss(again(1), again(2), again(3)))).toEqual([shared, shared, shared]);
+    });
+
+    it('prefers a story’s description to its excerpt otherwise', () => {
+      const xml = rss(story(1, '<excerpt>Short.</excerpt>', 'The story’s own description.'));
+      expect(summaries(xml)).toEqual(['The story’s own description.']);
+    });
+  });
+
   it('uses dc:date for RSS 1.0', () => {
     const [first] = normalizeEntries(FEED, parseFeed(fixture('rss1.xml')), NOW);
     expect(first!.publishedAt).toBe(Date.parse('2026-10-27'));

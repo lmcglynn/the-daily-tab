@@ -150,6 +150,25 @@ export function summarize(html: string, title: string): string {
   return truncate(text);
 }
 
+/** Headlines a feed's summary must sit under before it counts as being about none of them. */
+const REPEATED_UNDER = 3;
+
+/**
+ * Summaries one feed puts under several different headlines: a misfiring feed's text of another
+ * article (NBC's stations, every item at once) or boilerplate. They say nothing about the story,
+ * and grouping would read them as coverage of whatever they do describe.
+ */
+export function repeatedSummaries(stories: { title: string; summary: string }[]): Set<string> {
+  const headlines = new Map<string, Set<string>>();
+  for (const { title, summary } of stories) {
+    if (!summary) continue;
+    const seen = headlines.get(summary);
+    if (seen) seen.add(title);
+    else headlines.set(summary, new Set([title]));
+  }
+  return new Set([...headlines].filter(([, t]) => t.size >= REPEATED_UNDER).map(([s]) => s));
+}
+
 export function cleanTitle(raw: string): string {
   return truncate(htmlToText(raw), SUMMARY_MAX);
 }

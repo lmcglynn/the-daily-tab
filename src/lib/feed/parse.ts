@@ -7,6 +7,8 @@ export interface ParsedEntry {
   title: string;
   link?: string;
   summaryHtml?: string;
+  /** NBC's stations carry each story's real standfirst here. */
+  excerptHtml?: string;
   contentHtml?: string;
   imageUrl?: string;
   published?: string;
@@ -127,6 +129,7 @@ function rssItem(it: Node): ParsedEntry {
     title: text(it.title),
     link: rssLink(it) ?? (guid && permalink ? guid : undefined),
     summaryHtml: deepText(first(it.description)) || undefined,
+    excerptHtml: text(it.excerpt) || undefined,
     contentHtml: text(it['content:encoded']) || undefined,
     published: text(it.pubDate) || text(it['dc:date']) || text(it['a10:updated']) || undefined,
     author: text(it['dc:creator']) || text(it.author) || undefined,
